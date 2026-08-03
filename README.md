@@ -3,5 +3,5 @@
 This is the code for the 26-27 season
 
 ## Useful refrences
-https://github.com/FIRST-Tech-Challenge/FtcRobotController (FTC SDK)
-https://developer.android.com/studio (Android Studio)
+- https://github.com/FIRST-Tech-Challenge/FtcRobotController (FTC SDK)
+- https://developer.android.com/studio (Android Studio)
