@@ -36,9 +36,9 @@ public class IntakeTeleOp extends OpMode {
         IntakeServo1 = hardwareMap.get(CRServo.class, "intakeservo");
         IntakeServo2 = hardwareMap.get(CRServo.class, "intakeservo2");
 
-        // Removed the reverse for the FrontLeftWheel and reversed the FrontRightWheel becuase of minor gear.
+
         BackLeftWheel.setDirection(DcMotor.Direction.REVERSE);
-        FrontRightWheel.setDirection(DcMotor.Direction.REVERSE);
+        FrontLeftWheel.setDirection(DcMotor.Direction.REVERSE);
 
         FrontLeftWheel.setZeroPowerBehavior(DcMotor.ZeroPowerBehavior.BRAKE);
         FrontRightWheel.setZeroPowerBehavior(DcMotor.ZeroPowerBehavior.BRAKE);
