@@ -16,8 +16,8 @@ public class IntakeTeleOp extends OpMode {
     /* ---------------- TUNING ---------------- */
     // Flip the sign on any of these if a piece runs backwards.
     final double INTAKE_MOTOR_POWER  = 1.0;
-    final double INTAKE_SERVO1_POWER =  1.0;
-    final double INTAKE_SERVO2_POWER = -1.0;   // opposite side, so opposite sign
+    final double INTAKE_SERVO1_POWER =  -1.0;
+    final double INTAKE_SERVO2_POWER = 1.0;   // opposite side, so opposite sign
     final double TURN_SCALE = 0.6;
 
     /* ---------------- STATE ---------------- */
