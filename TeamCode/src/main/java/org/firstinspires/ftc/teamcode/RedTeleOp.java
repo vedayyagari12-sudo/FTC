@@ -9,15 +9,20 @@ import com.qualcomm.robotcore.hardware.Servo;
 import com.qualcomm.robotcore.util.Range;
 import org.firstinspires.ftc.vision.VisionPortal;
 import org.firstinspires.ftc.vision.apriltag.AprilTagDetection;
+import org.firstinspires.ftc.vision.apriltag.AprilTagSingleDetection;
 import org.firstinspires.ftc.vision.apriltag.AprilTagProcessor;
+import com.pedropathing.controllers.PIDController;
 import com.pedropathing.follower.Follower;
-import com.pedropathing.localization.Pose; // Pedro 2.x: com.pedropathing.geometry.Pose
+import com.pedropathing.math.Pose;
+import org.firstinspires.ftc.teamcode.pedro.Constants;
 import org.firstinspires.ftc.robotcore.external.hardware.camera.WebcamName;
 
-@TeleOp(name = "Red TeleOp Full")
+@TeleOp(name = "Red TeleOp")
 public class RedTeleOp extends OpMode {
 
     /* ---------------- HARDWARE MAP NAMES (update to match your config) ---------------- */
+    // NOTE: the four drive-motor names below are now used by pedro/Constants.java (drivetrainConfig).
+    // Pedro 3 owns the drive motors; if you rename them in the robot config, change them there too.
     final String FRONT_LEFT_NAME    = "FrontLeft";
     final String FRONT_RIGHT_NAME   = "FrontRight";
     final String BACK_LEFT_NAME     = "BackLeft";
@@ -32,8 +37,7 @@ public class RedTeleOp extends OpMode {
     final String WEBCAM_NAME        = "Webcam 1";
 
     /* ---------------- HARDWARE ---------------- */
-    DcMotor FrontLeftWheel, FrontRightWheel, BackLeftWheel, BackRightWheel;
-    DcMotor IntakeMotor;
+    DcMotor IntakeMotor; // drive wheels are driven by Pedro 3's Follower (see loop())
     CRServo IntakeServo1, IntakeServo2;
 
     Servo turretServo1, turretServo2;
@@ -115,22 +119,9 @@ public class RedTeleOp extends OpMode {
     /* ---------------- INIT ---------------- */
     @Override
     public void init() {
-        FrontLeftWheel  = hardwareMap.dcMotor.get(FRONT_LEFT_NAME);
-        FrontRightWheel = hardwareMap.dcMotor.get(FRONT_RIGHT_NAME);
-        BackLeftWheel   = hardwareMap.dcMotor.get(BACK_LEFT_NAME);
-        BackRightWheel  = hardwareMap.dcMotor.get(BACK_RIGHT_NAME);
-
         IntakeMotor  = hardwareMap.dcMotor.get(INTAKE_MOTOR_NAME);
         IntakeServo1 = hardwareMap.get(CRServo.class, INTAKE_SERVO1_NAME);
         IntakeServo2 = hardwareMap.get(CRServo.class, INTAKE_SERVO2_NAME);
-
-        BackLeftWheel.setDirection(DcMotor.Direction.REVERSE);
-        FrontLeftWheel.setDirection(DcMotor.Direction.REVERSE);
-
-        FrontLeftWheel.setZeroPowerBehavior(DcMotor.ZeroPowerBehavior.BRAKE);
-        FrontRightWheel.setZeroPowerBehavior(DcMotor.ZeroPowerBehavior.BRAKE);
-        BackLeftWheel.setZeroPowerBehavior(DcMotor.ZeroPowerBehavior.BRAKE);
-        BackRightWheel.setZeroPowerBehavior(DcMotor.ZeroPowerBehavior.BRAKE);
 
         IntakeMotor.setMode(DcMotor.RunMode.RUN_WITHOUT_ENCODER);
         IntakeMotor.setZeroPowerBehavior(DcMotor.ZeroPowerBehavior.BRAKE);
@@ -144,8 +135,8 @@ public class RedTeleOp extends OpMode {
         turretServo2.setDirection(Servo.Direction.FORWARD);
         flywheelPID = new PIDController(0.001, 0, 0); // TODO: your tuned gains
 
-        follower = new Follower(hardwareMap); // Pedro 2.x: follower = Constants.createFollower(hardwareMap);
-        follower.setStartingPose(new Pose(72, 12, Math.toRadians(90))); // TODO: match real match start
+        follower = Constants.create(hardwareMap); // Pedro 3
+        follower.setPose(new Pose(72, 12, Math.toRadians(90))); // TODO: match real match start
 
         aprilTag = new AprilTagProcessor.Builder().build();
         visionPortal = new VisionPortal.Builder()
@@ -165,12 +156,10 @@ public class RedTeleOp extends OpMode {
         double y  = -gamepad1.left_stick_y;
         double x  =  gamepad1.left_stick_x;
         double rx =  gamepad1.right_stick_x * TURN_SCALE;
-        double den = Math.max(1.0, Math.abs(y) + Math.abs(x) + Math.abs(rx));
 
-        FrontLeftWheel.setPower((y + x + rx) / den);
-        FrontRightWheel.setPower((y - x - rx) / den);
-        BackLeftWheel.setPower((y - x + rx) / den);
-        BackRightWheel.setPower((y + x - rx) / den);
+        // Pedro 3: positive strafe = LEFT and positive turn = counter-clockwise, so the stick
+        // axes are inverted. follower.update() (called later in this loop) applies these powers.
+        follower.manual(y, -x, -rx);
 
         /* -------- INTAKE TOGGLE (gamepad2 B) -------- */
         if (!gamepad2.b) intakeToggleReady = true;
@@ -210,16 +199,16 @@ public class RedTeleOp extends OpMode {
     /* ---------------- TURRET / SHOOTER LOGIC ---------------- */
     private void updateTurretAndShooter() {
         follower.update();
-        Pose pose = follower.getPose();
+        Pose pose = follower.pose();
 
         updateHiveCellTarget(pose);
 
         double targetX = targetIsBackCell ? BACK_CELL_X : AUDIENCE_CELL_X;
         double targetY = targetIsBackCell ? BACK_CELL_Y : AUDIENCE_CELL_Y;
-        double odometryDistance = Math.hypot(targetX - pose.getX(), targetY - pose.getY());
+        double odometryDistance = Math.hypot(targetX - pose.x(), targetY - pose.y());
 
-        double fieldAngle = Math.toDegrees(Math.atan2(targetY - pose.getY(), targetX - pose.getX()));
-        double turretAngle = Range.clip(normalizeAngle(fieldAngle - Math.toDegrees(pose.getHeading())),
+        double fieldAngle = Math.toDegrees(Math.atan2(targetY - pose.y(), targetX - pose.x()));
+        double turretAngle = Range.clip(normalizeAngle(fieldAngle - Math.toDegrees(pose.heading())),
                 TURRET_PAN_MIN_DEG, TURRET_PAN_MAX_DEG);
         double servoPos = (turretAngle - TURRET_PAN_MIN_DEG) / (TURRET_PAN_MAX_DEG - TURRET_PAN_MIN_DEG)
                 * (TURRET_PAN_MAX_POS - TURRET_PAN_MIN_POS) + TURRET_PAN_MIN_POS;
@@ -252,8 +241,8 @@ public class RedTeleOp extends OpMode {
     private void updateHiveCellTarget(Pose pose) {
         boolean sawBack = false, sawAudience = false;
         for (AprilTagDetection d : aprilTag.getDetections()) {
-            for (int id : BACK_CELL_TAGS)     if (d.id == id) sawBack = true;
-            for (int id : AUDIENCE_CELL_TAGS) if (d.id == id) sawAudience = true;
+            for (int id : BACK_CELL_TAGS)     if (tagId(d) == id) sawBack = true;
+            for (int id : AUDIENCE_CELL_TAGS) if (tagId(d) == id) sawAudience = true;
         }
         if (sawBack && !sawAudience) { targetIsBackCell = true;  lastVisionUpdateTime = System.currentTimeMillis(); }
         else if (sawAudience && !sawBack) { targetIsBackCell = false; lastVisionUpdateTime = System.currentTimeMillis(); }
@@ -265,7 +254,7 @@ public class RedTeleOp extends OpMode {
         boolean visionFresh = System.currentTimeMillis() - lastVisionUpdateTime < VISION_STALE_MS;
         boolean recentOverride = System.currentTimeMillis() - lastManualOverrideTime < MANUAL_OVERRIDE_GRACE_MS;
         if (!visionFresh && !recentOverride) {
-            boolean onLowerHalf = pose.getY() < FIELD_HALF_DIVIDER;
+            boolean onLowerHalf = pose.y() < FIELD_HALF_DIVIDER;
             targetIsBackCell = (onLowerHalf == LOWER_HALF_IS_BACK_CELL);
         }
     }
@@ -274,9 +263,9 @@ public class RedTeleOp extends OpMode {
     // half-field line and a hive tag is actually visible - odometry drifts
     // (especially after a collision), a visible tag doesn't.
     private double applyVisionTrim(double odometryServoPos, Pose pose) {
-        if (pose.getY() <= FIELD_HALF_DIVIDER) return odometryServoPos;
+        if (pose.y() <= FIELD_HALF_DIVIDER) return odometryServoPos;
         for (AprilTagDetection d : aprilTag.getDetections()) {
-            if (!containsId(BACK_CELL_TAGS, d.id) && !containsId(AUDIENCE_CELL_TAGS, d.id)) continue;
+            if (!containsId(BACK_CELL_TAGS, tagId(d)) && !containsId(AUDIENCE_CELL_TAGS, tagId(d))) continue;
             double trim = Range.clip(d.ftcPose.bearing * VISION_TRIM_GAIN, -MAX_VISION_TRIM_PER_LOOP, MAX_VISION_TRIM_PER_LOOP);
             return Range.clip(odometryServoPos + trim, TURRET_PAN_MIN_POS, TURRET_PAN_MAX_POS);
         }
@@ -284,11 +273,18 @@ public class RedTeleOp extends OpMode {
     }
 
     private double getShooterDistance(Pose pose, double odometryDistance) {
-        if (pose.getY() <= FIELD_HALF_DIVIDER) return odometryDistance;
+        if (pose.y() <= FIELD_HALF_DIVIDER) return odometryDistance;
         for (AprilTagDetection d : aprilTag.getDetections()) {
-            if (containsId(BACK_CELL_TAGS, d.id) || containsId(AUDIENCE_CELL_TAGS, d.id)) return d.ftcPose.range;
+            if (containsId(BACK_CELL_TAGS, tagId(d)) || containsId(AUDIENCE_CELL_TAGS, tagId(d))) return d.ftcPose.range;
         }
         return odometryDistance;
+    }
+
+    // FTC SDK 12.0: AprilTagDetection is now a base class; only single tags have an id.
+    // Cluster detections return -1 here (so they are ignored by the tag-id matching above).
+    // TODO(pedro3): if the BIOBUZZ library returns clusters, match on clusterDet.metadata instead.
+    private int tagId(AprilTagDetection d) {
+        return (d instanceof AprilTagSingleDetection) ? ((AprilTagSingleDetection) d).id : -1;
     }
 
     private boolean containsId(int[] ids, int id) {
@@ -320,7 +316,7 @@ public class RedTeleOp extends OpMode {
         lastHoodPos = hoodPos;
 
         double currentRPM = flywheel.getVelocity() / FLYWHEEL_TICKS_PER_REV * 60.0;
-        double power = flywheelPID.calculate(targetRPM, currentRPM); // TODO: match your PID class's real method
+        double power = flywheelPID.calculate(targetRPM, targetRPM - currentRPM); // Pedro 3 PIDController takes (target, error)
         flywheel.setPower(power);
         flywheelAtSpeed = Math.abs(targetRPM - currentRPM) < FLYWHEEL_RPM_TOLERANCE;
 
@@ -357,10 +353,7 @@ public class RedTeleOp extends OpMode {
     @Override
     public void stop() {
         stopIntake();
-        FrontLeftWheel.setPower(0);
-        FrontRightWheel.setPower(0);
-        BackLeftWheel.setPower(0);
-        BackRightWheel.setPower(0);
+        if (follower != null) { follower.stop(); follower.update(); } // zeroes the drive motors
         if (visionPortal != null) visionPortal.close();
     }
 }
