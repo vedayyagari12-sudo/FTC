@@ -38,18 +38,14 @@ The robot configuration that is active on the Driver Station, copied from the "A
 | `pinpoint` | `pedro/Constants.java` |
 | `flywheel` | the four full autos, `Turrettest`, `RedTeleOp` |
 | `intakemotor` | the four full autos, `Turrettest`, `RedTeleOp`, `IntakeTeleOp` |
-| `feedingmotor` | the four full autos, `Turrettest` |
-| `turretServo` | the four full autos (`TurretAim`), `Turrettest` |
-| `Intakeservo` | the four full autos (runs with `intakemotor`) |
-| `rampServo` | `Turrettest` only, and commented out there. The autos leave it alone until its down/up positions are measured. |
+| `feedingmotor` | the four full autos, `Turrettest`, `RedTeleOp`, `IntakeTeleOp` (right trigger) |
+| `turretServo` | the four full autos (`TurretAim`), `Turrettest`, `RedTeleOp` |
+| `Intakeservo` | the four full autos, `RedTeleOp`, `IntakeTeleOp` (runs with `intakemotor`) |
+| `rampServo` | `Turrettest` only, and commented out there. The autos and TeleOps leave it alone until its down/up positions are measured. |
+| `Webcam` | `RedTeleOp` (AprilTags) |
 | `imu` | nothing yet (heading comes from the Pinpoint) |
 
-## OpModes that do NOT match this config
-
-These ask for names that are not in `26season`, so they will crash at INIT on this robot until they are updated:
-
-- `RedTeleOp`: `intakeservo`, `intakeservo2`, `turretServo1`, `turretServo2`, `hoodServo`, `Webcam 1`
-- `IntakeTeleOp`: `intakeservo`, `intakeservo2`, `shootmotor`, `intakeservo3`
+Every OpMode in `TeamCode` now asks only for names in this config. The older names (`intakeservo`, `intakeservo2`, `turretServo1`, `turretServo2`, `hoodServo`, `shootmotor`, `intakeservo3`, `Webcam 1`) are gone: the robot has one intake servo, one turret servo, no hood servo (the ramp is the likely replacement) and a feeding motor where the ram used to be.
 
 ## Photos
 

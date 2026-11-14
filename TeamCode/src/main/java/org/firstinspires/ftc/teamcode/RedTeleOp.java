@@ -28,21 +28,22 @@ public class RedTeleOp extends OpMode {
     final String BACK_LEFT_NAME     = "BackLeft";
     final String BACK_RIGHT_NAME    = "BackRight";
     final String INTAKE_MOTOR_NAME  = "intakemotor";
-    final String INTAKE_SERVO1_NAME = "intakeservo";
-    final String INTAKE_SERVO2_NAME = "intakeservo2";
-    final String TURRET_SERVO1_NAME = "turretServo1";
-    final String TURRET_SERVO2_NAME = "turretServo2";
-    final String HOOD_SERVO_NAME    = "hoodServo";
+    // All names below match the 26season config (see HARDWARE_CONFIG.md).
+    final String INTAKE_SERVO_NAME  = "Intakeservo";  // CR servo, Control Hub servo 0 (capital I)
+    final String TURRET_SERVO_NAME  = "turretServo";  // the robot has ONE turret servo, Expansion Hub servo 1
     final String FLYWHEEL_NAME      = "flywheel";
-    final String WEBCAM_NAME        = "Webcam 1";
+    final String FEEDING_MOTOR_NAME = "feedingmotor"; // pushes balls into the flywheel
+    final String WEBCAM_NAME        = "Webcam";       // TODO confirm: the config photo cuts off right at this line
+    // No hood servo in the config. rampServo (Expansion Hub servo 0) is probably the hood, but its safe
+    // positions are not measured yet (see Turrettest), so this TeleOp does not drive it.
 
     /* ---------------- HARDWARE ---------------- */
     DcMotor IntakeMotor; // drive wheels are driven by Pedro 3's Follower (see loop())
-    CRServo IntakeServo1, IntakeServo2;
+    CRServo IntakeServo;
 
-    Servo turretServo1, turretServo2;
-    Servo hood;
+    Servo turretServo;
     DcMotorEx flywheel;
+    DcMotor feedingMotor;
     Follower follower;
     AprilTagProcessor aprilTag;
     VisionPortal visionPortal;
@@ -50,8 +51,8 @@ public class RedTeleOp extends OpMode {
 
     /* ---------------- DRIVE / INTAKE TUNING ---------------- */
     final double INTAKE_MOTOR_POWER  = -1.0;
-    final double INTAKE_SERVO1_POWER =  1.0;
-    final double INTAKE_SERVO2_POWER = -1.0;
+    final double INTAKE_SERVO_POWER  = -1.0; // same sign as the autos and IntakeTeleOp; flip if it pushes balls out
+    final double FEED_POWER          = -1.0; // same as Turrettest and the autos
     final double TURN_SCALE = 0.6;
 
     /* ---------------- HIVE / TAG CONFIG (red only) ---------------- */
@@ -84,12 +85,10 @@ public class RedTeleOp extends OpMode {
 
     /* ---------------- MANUAL MODE CONFIG ---------------- */
     final double MANUAL_TURRET_RATE = 0.01;
-    final double MANUAL_HOOD_RATE = 0.01;
-    final double HOOD_MIN_POS = 0.0, HOOD_MAX_POS = 1.0;
     final double STICK_DEADZONE = 0.1;
 
     /* ---------------- SHOOTER CONFIG ---------------- */
-    // {distance in, RPM, hood pos} - PLACEHOLDER rows, replace with tested values.
+    // {distance in, RPM, hood pos} - hood pos is not used until the ramp is wired in. PLACEHOLDER rows, replace with tested values.
     final double[][] shotTable = {
         {24, 2400, 0.30},
         {60, 2900, 0.45},
@@ -112,27 +111,26 @@ public class RedTeleOp extends OpMode {
     boolean manualMode = false;
     boolean modeToggleReady = true;
     double manualTurretPos = 0.5;
-    double manualHoodPos = 0.3;
     double lastTurretPos = 0.5;
-    double lastHoodPos = 0.3;
 
     /* ---------------- INIT ---------------- */
     @Override
     public void init() {
         IntakeMotor  = hardwareMap.dcMotor.get(INTAKE_MOTOR_NAME);
-        IntakeServo1 = hardwareMap.get(CRServo.class, INTAKE_SERVO1_NAME);
-        IntakeServo2 = hardwareMap.get(CRServo.class, INTAKE_SERVO2_NAME);
+        IntakeServo  = hardwareMap.get(CRServo.class, INTAKE_SERVO_NAME);
 
         IntakeMotor.setMode(DcMotor.RunMode.RUN_WITHOUT_ENCODER);
         IntakeMotor.setZeroPowerBehavior(DcMotor.ZeroPowerBehavior.BRAKE);
         stopIntake();
 
-        turretServo1 = hardwareMap.get(Servo.class, TURRET_SERVO1_NAME);
-        turretServo2 = hardwareMap.get(Servo.class, TURRET_SERVO2_NAME);
-        hood         = hardwareMap.get(Servo.class, HOOD_SERVO_NAME);
+        turretServo  = hardwareMap.get(Servo.class, TURRET_SERVO_NAME);
         flywheel     = hardwareMap.get(DcMotorEx.class, FLYWHEEL_NAME);
-        // If one turret servo fights the other, flip this to REVERSE.
-        turretServo2.setDirection(Servo.Direction.FORWARD);
+        // The flywheel shoots with NEGATIVE power (autos, Turrettest); reverse it so the RPM math here stays positive.
+        flywheel.setDirection(DcMotor.Direction.REVERSE);
+        feedingMotor = hardwareMap.dcMotor.get(FEEDING_MOTOR_NAME);
+        feedingMotor.setMode(DcMotor.RunMode.RUN_WITHOUT_ENCODER);
+        feedingMotor.setZeroPowerBehavior(DcMotor.ZeroPowerBehavior.BRAKE);
+        feedingMotor.setPower(0);
         flywheelPID = new PIDController(0.001, 0, 0); // TODO: your tuned gains
 
         follower = Constants.create(hardwareMap); // Pedro 3
@@ -174,9 +172,8 @@ public class RedTeleOp extends OpMode {
         if (gamepad2.left_bumper && modeToggleReady) {
             manualMode = !manualMode;
             modeToggleReady = false;
-            // Start manual from wherever auto left the turret/hood so nothing jumps.
+            // Start manual from wherever auto left the turret so nothing jumps.
             manualTurretPos = lastTurretPos;
-            manualHoodPos = lastHoodPos;
         }
 
         /* -------- TURRET / SHOOTER -------- */
@@ -185,9 +182,7 @@ public class RedTeleOp extends OpMode {
         // Fire on gamepad2 RT in both modes. Auto waits for aim + flywheel,
         // manual only waits for flywheel since the driver is aiming.
         boolean readyToFire = manualMode ? flywheelAtSpeed : turretReady();
-        if (gamepad2.right_trigger > 0.5 && readyToFire) {
-            // TODO: trigger your feed/spindexer mechanism here
-        }
+        feedingMotor.setPower(gamepad2.right_trigger > 0.5 && readyToFire ? FEED_POWER : 0);
 
         telemetry.addData("Aim mode", manualMode ? "MANUAL" : "AUTO");
         telemetry.addData("Ready to fire", readyToFire);
@@ -220,8 +215,7 @@ public class RedTeleOp extends OpMode {
             manualTurretPos = Range.clip(manualTurretPos + turn * MANUAL_TURRET_RATE, TURRET_PAN_MIN_POS, TURRET_PAN_MAX_POS);
             servoPos = manualTurretPos;
         }
-        turretServo1.setPosition(servoPos);
-        turretServo2.setPosition(servoPos);
+        turretServo.setPosition(servoPos);
         lastTurretPos = servoPos;
 
         if (Double.isNaN(lastCommandedAngle) || Math.abs(turretAngle - lastCommandedAngle) > TURRET_TOLERANCE_DEG) {
@@ -302,18 +296,9 @@ public class RedTeleOp extends OpMode {
         return deg;
     }
 
-    // Blends between the nearest measured distance/RPM/hood points in the table.
+    // Blends between the nearest measured distance/RPM points in the table.
     private void updateShooterForDistance(double distance) {
         double targetRPM = interpolate(shotTable, distance, 1);
-        double hoodPos = interpolate(shotTable, distance, 2);
-
-        if (manualMode) {
-            double lift = Math.abs(gamepad2.left_stick_y) > STICK_DEADZONE ? -gamepad2.left_stick_y : 0;
-            manualHoodPos = Range.clip(manualHoodPos + lift * MANUAL_HOOD_RATE, HOOD_MIN_POS, HOOD_MAX_POS);
-            hoodPos = manualHoodPos;
-        }
-        hood.setPosition(hoodPos);
-        lastHoodPos = hoodPos;
 
         double currentRPM = flywheel.getVelocity() / FLYWHEEL_TICKS_PER_REV * 60.0;
         double power = flywheelPID.calculate(targetRPM, targetRPM - currentRPM); // Pedro 3 PIDController takes (target, error)
@@ -321,7 +306,6 @@ public class RedTeleOp extends OpMode {
         flywheelAtSpeed = Math.abs(targetRPM - currentRPM) < FLYWHEEL_RPM_TOLERANCE;
 
         telemetry.addData("Target RPM", targetRPM);
-        telemetry.addData("Hood", hoodPos);
     }
 
     private double interpolate(double[][] table, double distance, int column) {
@@ -340,19 +324,19 @@ public class RedTeleOp extends OpMode {
     /* ---------------- INTAKE HELPERS ---------------- */
     private void runIntake() {
         IntakeMotor.setPower(INTAKE_MOTOR_POWER);
-        IntakeServo1.setPower(INTAKE_SERVO1_POWER);
-        IntakeServo2.setPower(INTAKE_SERVO2_POWER);
+        IntakeServo.setPower(INTAKE_SERVO_POWER);
     }
 
     private void stopIntake() {
         IntakeMotor.setPower(0);
-        IntakeServo1.setPower(0);
-        IntakeServo2.setPower(0);
+        IntakeServo.setPower(0);
     }
 
     @Override
     public void stop() {
         stopIntake();
+        if (feedingMotor != null) feedingMotor.setPower(0);
+        if (flywheel != null) flywheel.setPower(0);
         if (follower != null) { follower.stop(); follower.update(); } // zeroes the drive motors
         if (visionPortal != null) visionPortal.close();
     }

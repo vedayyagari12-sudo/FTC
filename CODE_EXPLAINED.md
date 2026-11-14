@@ -93,14 +93,14 @@ Each one waits `START_DELAY_MS`, follows one or two Pedro paths to the parking z
 ### `RedTeleOp.java` ("Red TeleOp")
 
 - Drive: `follower.manual(y, -x, -rx)`, field position tracked by Pedro. Turn speed is scaled by 0.6.
-- Intake: gamepad 2 `B` toggles the intake motor and the two continuous servos.
-- Turret and shooter (`updateTurretAndShooter`): works out the angle to a target on the HIVE from the pose, converts it to a servo position (`TURRET_PAN_MIN/MAX_DEG` map to servo 0 to 1) and sets both turret servos. It picks the "back" or "audience" cell by AprilTag ids 0 to 3 or 4 to 7, can be forced with D-pad up/down, and guesses from the field half when no tag is seen. Past the half line a visible tag adds a small correction.
-- Shot table: `{distance, RPM, hood}` rows, interpolated by distance, plus a flywheel controller from the Pedro `PIDController`.
-- Gamepad 2 left bumper switches between automatic aim and manual (right stick turns the turret, left stick moves the hood). Right trigger is meant to fire but the feed mechanism is still a `TODO`.
+- Intake: gamepad 2 `B` toggles the intake motor and the `Intakeservo` continuous servo.
+- Turret and shooter (`updateTurretAndShooter`): works out the angle to a target on the HIVE from the pose, converts it to a servo position (`TURRET_PAN_MIN/MAX_DEG` map to servo 0 to 1) and sets `turretServo`. It picks the "back" or "audience" cell by AprilTag ids 0 to 3 or 4 to 7, can be forced with D-pad up/down, and guesses from the field half when no tag is seen. Past the half line a visible tag adds a small correction.
+- Shot table: `{distance, RPM, hood}` rows, interpolated by distance, plus a flywheel controller from the Pedro `PIDController`. The flywheel is set to `REVERSE` so positive power shoots (the autos use negative power for the same thing). The hood column is unused: the robot has no hood servo, and `rampServo` isn't driven until its positions are measured.
+- Gamepad 2 left bumper switches between automatic aim and manual (right stick turns the turret). Right trigger (past half) runs `feedingmotor` once the shot is ready.
 
 ### `IntakeTeleOp.java`
 
-An earlier TeleOp: mecanum drive written by hand (no Pedro), `B` toggles the intake, right trigger runs a ram: extends a servo, then drives `shootmotor` forward by 179 encoder ticks per press.
+An earlier TeleOp: mecanum drive written by hand (no Pedro), `B` toggles the intake (motor plus `Intakeservo`), holding the right trigger runs `feedingmotor`. The old ram (`shootmotor` plus `intakeservo3`) is gone because the robot no longer has it.
 
 ### `Turrettest.java` ("Turret Test")
 
@@ -136,6 +136,7 @@ These must match the Driver Station "Configure Robot" screen exactly. The robot'
 | Name | Used by | Notes |
 |---|---|---|
 | `FrontLeft`, `BackLeft`, `FrontRight`, `BackRight` | `pedro/Constants.java`, `IntakeTeleOp` | Drive motors, Control Hub motors 0 to 3 |
+| `Webcam` | `RedTeleOp` | USB webcam for AprilTags. Name cut off in the config photo, confirm it |
 | `pinpoint` | `pedro/Constants.java` | goBILDA Pinpoint, Control Hub I2C bus 1 |
 | `imu` | nothing yet | REV internal IMU, Control Hub I2C bus 0 |
 | `flywheel` | autos, `RedTeleOp`, `Turrettest` | Shooter flywheel motor, Expansion Hub motor 0 |
@@ -144,15 +145,13 @@ These must match the Driver Station "Configure Robot" screen exactly. The robot'
 | `Intakeservo` | autos | Intake CR servo, Control Hub servo 0. Capital I |
 | `turretServo` | autos, `Turrettest` | Single turret servo, Expansion Hub servo 1. Confirmed in the config |
 | `rampServo` | `Turrettest` (commented out) | Ramp servo, Expansion Hub servo 0. Not driven by the autos yet |
-| `turretServo1`, `turretServo2` | `RedTeleOp` | NOT in the config: the robot has one turret servo |
-| `hoodServo`, `intakeservo`, `intakeservo2`, `Webcam 1` | `RedTeleOp` | NOT in the config, `RedTeleOp` crashes at INIT until updated |
-| `shootmotor`, `intakeservo3` | `IntakeTeleOp` | NOT in the config, `IntakeTeleOp` crashes at INIT until updated |
+| `turretServo1`, `turretServo2`, `hoodServo`, `intakeservo`, `intakeservo2`, `shootmotor`, `intakeservo3`, `Webcam 1` | nothing now | Old names that are not in the config; the TeleOps were moved to the names above |
 
 ## 8. Places where the code disagrees with itself (confirm on the robot)
 
 These were already in the code before the turret aiming was added. They decide whether the turret moves the right way and the right amount.
 
-1. **One turret servo or two? Settled: one.** The `26season` config has a single `turretServo` (Expansion Hub servo 1), which is what `Turrettest` and the autos use. `RedTeleOp` still drives `turretServo1` and `turretServo2` and needs updating.
+1. **One turret servo or two? Settled: one.** The `26season` config has a single `turretServo` (Expansion Hub servo 1), which is what `Turrettest` and the autos use. `RedTeleOp` now uses it too.
 2. **Turret travel.** `Turrettest` assumes 300 degrees of turret per full servo travel (plus or minus 150). `RedTeleOp` maps plus or minus 90 degrees onto the full servo range (180 degrees). `TurretAim.TURRET_RANGE_DEG` follows `Turrettest`. Measure the real travel with `Turrettest` and set the constant.
 3. **Direction.** `Turrettest` calls a higher servo position "turret right" (clockwise). `RedTeleOp` makes a left (counter-clockwise) turn a higher servo position. `TurretAim.TURRET_SIGN = 1.0` follows `RedTeleOp`. If the turret swings the wrong way in an auto, set it to `-1.0`.
 4. **TeleOp HIVE coordinates.** `RedTeleOp` aims at placeholder points (100, 48) and (100, 73.5) with a half line at 70.75. The manual-based numbers used by `TurretAim` are x = 59.25 (red HIVE), cells at y = 55.5 and 88.5, half line at 72. If you want the TeleOp to share `TurretAim`, that is a small follow-up change.
