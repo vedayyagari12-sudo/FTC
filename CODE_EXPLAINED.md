@@ -20,7 +20,7 @@ What every part of this repo does, and how the turret aiming fits into the autos
 | `TeamCode/src/main/java/org/firstinspires/ftc/teamcode/` | All of the team's robot code. Everything below is in here unless noted. |
 | `.../Close*Alliance1.java`, `.../Far*Alliance1.java` | The four full autos: close and far start, red and blue alliance. They drive, shoot, pick up balls and now aim the turret. |
 | `.../Close*AlliancePark.java`, `.../Far*AlliancePark.java` | The four "dead autos": only drive to the parking zone. No shooter, no intake, no turret. |
-| `.../RedTeleOp.java` | The main driver-controlled program (red side): Pedro drive, intake, turret auto-aim through `TurretAim` with AprilTag cell choice, flywheel from a shot table, feeding motor on the right trigger. |
+| `.../RedTeleOp.java` | The main driver-controlled program (red side): Pedro drive, intake, turret auto-aim through `TurretAim` from the Pinpoint pose (no camera), flywheel from a shot table, feeding motor on the right trigger. |
 | `.../BlueTeleOp.java` | The same TeleOp for the blue alliance: extends `RedTeleOp` and only changes which HIVE the turret aims at. |
 | `.../IntakeTeleOp.java` | Older, simpler TeleOp: drives the wheels directly (no Pedro), intake toggle and a ram/push mechanism. |
 | `.../Turrettest.java` | Bench-test TeleOp: drive, move the turret with a stick, flywheel, intake and feeding motor. Nothing automatic. |
@@ -95,13 +95,13 @@ Each one waits `START_DELAY_MS`, follows one or two Pedro paths to the parking z
 
 - Drive: `follower.manual(y, -x, -rx)`, field position tracked by Pedro. Turn speed is scaled by 0.6.
 - Intake: gamepad 2 `B` toggles the intake motor and the `Intakeservo` continuous servo.
-- Turret and shooter (`updateTurretAndShooter`): gets the turret angle, servo position and distance from `TurretAim` (same math as the autos) and sets `turretServo`. It picks the "back" (far) or "audience" cell by AprilTag ids 0 to 3 or 4 to 7, can be forced with D-pad up/down, and falls back to `TurretAim`'s field-half rule when no tag is seen. Past the half line a visible tag adds a small correction.
+- Turret and shooter (`updateTurretAndShooter`): gets the turret angle, servo position and distance from `TurretAim` (same math as the autos) and sets `turretServo`. It picks the "back" (far) or "audience" cell by `TurretAim`'s half-line rule (lower half = audience); gamepad 2 D-pad up forces the far cell, down forces the audience cell, left goes back to automatic. There is no camera or AprilTag code: aim comes from odometry alone.
 - Shot table: `{distance, RPM, hood}` rows, interpolated by distance, plus a flywheel controller from the Pedro `PIDController`. The flywheel is set to `REVERSE` so positive power shoots (the autos use negative power for the same thing). The hood column is unused: the robot has no hood servo, and `rampServo` isn't driven until its positions are measured.
 - Gamepad 2 left bumper switches between automatic aim and manual (right stick turns the turret). Right trigger (past half) runs `feedingmotor` once the shot is ready.
 
 ### `BlueTeleOp.java` ("Blue TeleOp")
 
-A few lines: it extends `RedTeleOp` and overrides `alliance()` to return `TurretAim.BLUE`, so everything above applies with the turret aimed at the blue HIVE (x = 84.75). The AprilTag ids are placeholders shared with red for now.
+A few lines: it extends `RedTeleOp` and overrides `alliance()` to return `TurretAim.BLUE`, so everything above applies with the turret aimed at the blue HIVE (x = 84.75).
 
 ### `IntakeTeleOp.java`
 
@@ -117,7 +117,7 @@ A bench test with no automation. Gamepad 1 drives. Gamepad 2: right stick X turn
 
 1. **Which CELL.** The robot aims at the CELL on the half of the field it stands on: `y < 72` is the audience CELL, otherwise the far CELL. The target is on the alliance's own HIVE: `x = 72 - 12.75` for `RED`, `72 + 12.75` for `BLUE`.
 2. **Turret pivot.** The pose is the robot center; the turret pivot is moved by `PIVOT_FORWARD_IN` and `PIVOT_LEFT_IN` (both 0 until measured), rotated by the heading.
-3. **Angle.** Field bearing from the pivot to the CELL, minus the robot heading, wrapped to -180 to 180. That is how far the turret must turn from straight ahead (positive is left). It is clamped to `TURRET_LIMIT_DEG` (150) and `outOfRange` says if it had to be.
+3. **Angle.** Field bearing from the pivot to the CELL, minus the robot heading, wrapped to -180 to 180. That is how far the turret must turn from straight ahead (positive is left). It is clamped to `TURRET_LIMIT_DEG` (135, so 270 degrees of turning in total) and `outOfRange` says if it had to be.
 4. **Servo value.** `TURRET_CENTER + TURRET_SIGN * angle / TURRET_RANGE_DEG`, for `turretServo.setPosition()`.
 5. **Distance.** Flat distance from the pivot to the opening center, for the shot table later.
 
@@ -141,7 +141,7 @@ These must match the Driver Station "Configure Robot" screen exactly. The robot'
 | Name | Used by | Notes |
 |---|---|---|
 | `FrontLeft`, `BackLeft`, `FrontRight`, `BackRight` | `pedro/Constants.java`, `IntakeTeleOp` | Drive motors, Control Hub motors 0 to 3 |
-| `Webcam` | `RedTeleOp` | USB webcam for AprilTags. Name cut off in the config photo, confirm it |
+| `Webcam` | nothing | In the config but unused: the robot uses odometry, not a camera |
 | `pinpoint` | `pedro/Constants.java` | goBILDA Pinpoint, Control Hub I2C bus 1 |
 | `imu` | nothing yet | REV internal IMU, Control Hub I2C bus 0 |
 | `flywheel` | autos, `RedTeleOp`, `Turrettest` | Shooter flywheel motor, Expansion Hub motor 0 |
@@ -157,9 +157,9 @@ These must match the Driver Station "Configure Robot" screen exactly. The robot'
 These were already in the code before the turret aiming was added. They decide whether the turret moves the right way and the right amount.
 
 1. **One turret servo or two? Settled: one.** The `26season` config has a single `turretServo` (Expansion Hub servo 1), which is what `Turrettest` and the autos use. `RedTeleOp` now uses it too.
-2. **Turret travel.** `Turrettest` assumes 300 degrees of turret per full servo travel (plus or minus 150). `TurretAim.TURRET_RANGE_DEG` follows it, and the autos and `RedTeleOp` both use `TurretAim` now. Measure the real travel with `Turrettest` and set the constant once.
+2. **Turret travel.** The turret may turn 135 degrees to each side (270 in total), and the servo is assumed to give 300 degrees per full travel. Both numbers live only in `TurretAim` (`TURRET_LIMIT_DEG`, `TURRET_RANGE_DEG`); the autos, `RedTeleOp`, `BlueTeleOp` and `Turrettest` all read them from there. Measure the real travel with `Turrettest` and set the constant once.
 3. **Direction.** `Turrettest` calls a higher servo position "turret right" (clockwise). The old `RedTeleOp` math made a left (counter-clockwise) turn a higher servo position, and `TurretAim.TURRET_SIGN = 1.0` keeps that. If the turret swings the wrong way, set it to `-1.0`: that fixes the autos and the TeleOp (including its vision trim) together.
-4. **TeleOp HIVE coordinates. Settled.** `RedTeleOp` used to aim at placeholder points (100, 48) and (100, 73.5). It now calls `TurretAim.aim(..., targetFar)`, so it uses the same red HIVE cells (x = 59.25, y = 55.5 and 88.5) and half line (72) as the autos. The AprilTag and D-pad cell choice still works: "back" means the far CELL.
+4. **TeleOp HIVE coordinates. Settled.** `RedTeleOp` used to aim at placeholder points (100, 48) and (100, 73.5). It now calls `TurretAim.aim(..., targetFar)`, so it uses the same red HIVE cells (x = 59.25, y = 55.5 and 88.5) and half line (72) as the autos. The D-pad cell override still works: "back" means the far CELL.
 5. **Turret pivot and shooter height.** `PIVOT_FORWARD_IN`, `PIVOT_LEFT_IN` and `SHOOTER_Z_IN` in `TurretAim` are placeholders (0, 0, 12). Measure them on the robot.
 6. **Park auto comments.** The header comments of `CloseRedAlliancePark` (start at 61, 136 facing -90) and `FarRedAlliancePark` (start at 64, 2 facing 90) do not match their constants (61, 8 facing 90, and 64, 142 facing 270). The constants are what runs.
 7. **Not compiled here.** The turret changes were checked with a Java self-check of the math only. Build the project in Android Studio before taking it to a match.
