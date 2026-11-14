@@ -20,7 +20,8 @@ What every part of this repo does, and how the turret aiming fits into the autos
 | `TeamCode/src/main/java/org/firstinspires/ftc/teamcode/` | All of the team's robot code. Everything below is in here unless noted. |
 | `.../Close*Alliance1.java`, `.../Far*Alliance1.java` | The four full autos: close and far start, red and blue alliance. They drive, shoot, pick up balls and now aim the turret. |
 | `.../Close*AlliancePark.java`, `.../Far*AlliancePark.java` | The four "dead autos": only drive to the parking zone. No shooter, no intake, no turret. |
-| `.../RedTeleOp.java` | The main driver-controlled program (red side): Pedro drive, intake, turret auto-aim with AprilTags, hood and flywheel from a shot table. |
+| `.../RedTeleOp.java` | The main driver-controlled program (red side): Pedro drive, intake, turret auto-aim through `TurretAim` with AprilTag cell choice, flywheel from a shot table, feeding motor on the right trigger. |
+| `.../BlueTeleOp.java` | The same TeleOp for the blue alliance: extends `RedTeleOp` and only changes which HIVE the turret aims at. |
 | `.../IntakeTeleOp.java` | Older, simpler TeleOp: drives the wheels directly (no Pedro), intake toggle and a ram/push mechanism. |
 | `.../Turrettest.java` | Bench-test TeleOp: drive, move the turret with a stick, flywheel, intake and feeding motor. Nothing automatic. |
 | `.../TurretAim.java` | New. Pure math that turns the robot pose into a turret angle and servo position. Shared by the four full autos. |
@@ -97,6 +98,10 @@ Each one waits `START_DELAY_MS`, follows one or two Pedro paths to the parking z
 - Turret and shooter (`updateTurretAndShooter`): gets the turret angle, servo position and distance from `TurretAim` (same math as the autos) and sets `turretServo`. It picks the "back" (far) or "audience" cell by AprilTag ids 0 to 3 or 4 to 7, can be forced with D-pad up/down, and falls back to `TurretAim`'s field-half rule when no tag is seen. Past the half line a visible tag adds a small correction.
 - Shot table: `{distance, RPM, hood}` rows, interpolated by distance, plus a flywheel controller from the Pedro `PIDController`. The flywheel is set to `REVERSE` so positive power shoots (the autos use negative power for the same thing). The hood column is unused: the robot has no hood servo, and `rampServo` isn't driven until its positions are measured.
 - Gamepad 2 left bumper switches between automatic aim and manual (right stick turns the turret). Right trigger (past half) runs `feedingmotor` once the shot is ready.
+
+### `BlueTeleOp.java` ("Blue TeleOp")
+
+A few lines: it extends `RedTeleOp` and overrides `alliance()` to return `TurretAim.BLUE`, so everything above applies with the turret aimed at the blue HIVE (x = 84.75). The AprilTag ids are placeholders shared with red for now.
 
 ### `IntakeTeleOp.java`
 

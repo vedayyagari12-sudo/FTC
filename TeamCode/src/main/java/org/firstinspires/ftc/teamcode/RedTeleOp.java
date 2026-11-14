@@ -55,7 +55,11 @@ public class RedTeleOp extends OpMode {
     final double FEED_POWER          = -1.0; // same as Turrettest and the autos
     final double TURN_SCALE = 0.6;
 
-    /* ---------------- HIVE / TAG CONFIG (red only) ---------------- */
+    /* ---------------- HIVE / TAG CONFIG ---------------- */
+    // Which alliance HIVE to aim at. BlueTeleOp extends this class and returns TurretAim.BLUE.
+    int alliance() { return TurretAim.RED; }
+
+    // shortcut: tag ids are PLACEHOLDERS shared by both alliances; once the real BIOBUZZ ids are known, give BlueTeleOp its own.
     // Each cell's AprilTag faces down toward the tiles only when that cell's
     // opening faces up - so seeing a cell's tags means aim at THAT cell.
     final int[] BACK_CELL_TAGS     = {0, 1, 2, 3};
@@ -140,7 +144,7 @@ public class RedTeleOp extends OpMode {
                 .addProcessor(aprilTag)
                 .build();
 
-        telemetry.addLine("Initialized. GP2: B intake, LB auto/manual, RT fire.");
+        telemetry.addLine((alliance() == TurretAim.RED ? "Red" : "Blue") + " TeleOp initialized. GP2: B intake, LB auto/manual, RT fire.");
         telemetry.update();
     }
 
@@ -196,7 +200,7 @@ public class RedTeleOp extends OpMode {
 
         updateHiveCellTarget(pose);
 
-        TurretAim.Result aim = TurretAim.aim(pose.x(), pose.y(), pose.heading(), TurretAim.RED, targetIsBackCell);
+        TurretAim.Result aim = TurretAim.aim(pose.x(), pose.y(), pose.heading(), alliance(), targetIsBackCell);
         double turretAngle = aim.turretDeg;
         double servoPos = applyVisionTrim(aim.servoPos, pose);
 
