@@ -7,15 +7,10 @@ import com.qualcomm.robotcore.hardware.DcMotor;
 import com.qualcomm.robotcore.hardware.DcMotorEx;
 import com.qualcomm.robotcore.hardware.Servo;
 import com.qualcomm.robotcore.util.Range;
-import org.firstinspires.ftc.vision.VisionPortal;
-import org.firstinspires.ftc.vision.apriltag.AprilTagDetection;
-import org.firstinspires.ftc.vision.apriltag.AprilTagSingleDetection;
-import org.firstinspires.ftc.vision.apriltag.AprilTagProcessor;
 import com.pedropathing.controllers.PIDController;
 import com.pedropathing.follower.Follower;
 import com.pedropathing.math.Pose;
 import org.firstinspires.ftc.teamcode.pedro.Constants;
-import org.firstinspires.ftc.robotcore.external.hardware.camera.WebcamName;
 
 @TeleOp(name = "Red TeleOp")
 public class RedTeleOp extends OpMode {
@@ -33,7 +28,6 @@ public class RedTeleOp extends OpMode {
     final String TURRET_SERVO_NAME  = "turretServo";  // the robot has ONE turret servo, Expansion Hub servo 1
     final String FLYWHEEL_NAME      = "flywheel";
     final String FEEDING_MOTOR_NAME = "feedingmotor"; // pushes balls into the flywheel
-    final String WEBCAM_NAME        = "Webcam";       // TODO confirm: the config photo cuts off right at this line
     // No hood servo in the config. rampServo (Expansion Hub servo 0) is probably the hood, but its safe
     // positions are not measured yet (see Turrettest), so this TeleOp does not drive it.
 
@@ -45,8 +39,6 @@ public class RedTeleOp extends OpMode {
     DcMotorEx flywheel;
     DcMotor feedingMotor;
     Follower follower;
-    AprilTagProcessor aprilTag;
-    VisionPortal visionPortal;
     PIDController flywheelPID; // TODO: swap in your actual PID class if the name/signature differs
 
     /* ---------------- DRIVE / INTAKE TUNING ---------------- */
@@ -55,35 +47,22 @@ public class RedTeleOp extends OpMode {
     final double FEED_POWER          = -1.0; // same as Turrettest and the autos
     final double TURN_SCALE = 0.6;
 
-    /* ---------------- HIVE / TAG CONFIG ---------------- */
+    /* ---------------- HIVE CELL CONFIG ---------------- */
     // Which alliance HIVE to aim at. BlueTeleOp extends this class and returns TurretAim.BLUE.
     int alliance() { return TurretAim.RED; }
 
-    // shortcut: tag ids are PLACEHOLDERS shared by both alliances; once the real BIOBUZZ ids are known, give BlueTeleOp its own.
-    // Each cell's AprilTag faces down toward the tiles only when that cell's
-    // opening faces up - so seeing a cell's tags means aim at THAT cell.
-    final int[] BACK_CELL_TAGS     = {0, 1, 2, 3};
-    final int[] AUDIENCE_CELL_TAGS = {4, 5, 6, 7};
-
     // "Back" cell = TurretAim's far CELL. Cell positions, turret mapping and limits all come from TurretAim.java.
 
-    final long VISION_STALE_MS = 1000;
-    final long MANUAL_OVERRIDE_GRACE_MS = 1000;
-
-    // Half line: below it TurretAim aims at the audience CELL, above it the far (back) CELL.
+    // No camera: the turret aims from the Pinpoint pose alone. The CELL is picked by the half line (below it TurretAim
+    // aims at the audience CELL, above it the far/back CELL) unless gamepad 2 D-pad forces one.
     final double FIELD_HALF_DIVIDER = 72;
 
     /* ---------------- TURRET CONFIG ---------------- */
-    // Servo positions for TurretAim's turn limit to each side (manual mode and vision trim stay inside these).
+    // Servo positions for TurretAim's turn limit to each side (manual mode stays inside these).
     final double TURRET_MIN_POS = Math.max(0.0, TurretAim.TURRET_CENTER - TurretAim.TURRET_LIMIT_DEG / TurretAim.TURRET_RANGE_DEG);
     final double TURRET_MAX_POS = Math.min(1.0, TurretAim.TURRET_CENTER + TurretAim.TURRET_LIMIT_DEG / TurretAim.TURRET_RANGE_DEG);
     final double TURRET_TOLERANCE_DEG = 2.0;
     final long TURRET_SETTLE_MS = 150;
-
-    // Fine vision trim - only applied past FIELD_HALF_DIVIDER, on top of the
-    // odometry aim, when a hive tag is actually visible.
-    final double VISION_TRIM_GAIN = 0.02;
-    final double MAX_VISION_TRIM_PER_LOOP = 0.01;
 
     /* ---------------- MANUAL MODE CONFIG ---------------- */
     final double MANUAL_TURRET_RATE = 0.01;
@@ -104,8 +83,7 @@ public class RedTeleOp extends OpMode {
     boolean intakeToggleReady = true;
 
     boolean targetIsBackCell = true;
-    long lastVisionUpdateTime = 0;
-    long lastManualOverrideTime = 0;
+    Boolean cellOverride = null; // null = pick by half line; true = far/back CELL; false = audience CELL
     double lastCommandedAngle = Double.NaN;
     long lastAngleChangeTime = 0;
     boolean flywheelAtSpeed = false;
@@ -138,13 +116,7 @@ public class RedTeleOp extends OpMode {
         follower = Constants.create(hardwareMap); // Pedro 3
         follower.setPose(new Pose(72, 12, Math.toRadians(90))); // TODO: match real match start
 
-        aprilTag = new AprilTagProcessor.Builder().build();
-        visionPortal = new VisionPortal.Builder()
-                .setCamera(hardwareMap.get(WebcamName.class, WEBCAM_NAME))
-                .addProcessor(aprilTag)
-                .build();
-
-        telemetry.addLine((alliance() == TurretAim.RED ? "Red" : "Blue") + " TeleOp initialized. GP2: B intake, LB auto/manual, RT fire.");
+        telemetry.addLine((alliance() == TurretAim.RED ? "Red" : "Blue") + " TeleOp initialized. GP2: B intake, LB auto/manual, D-pad up/down/left force far/audience/auto cell, RT fire.");
         telemetry.update();
     }
 
@@ -202,7 +174,7 @@ public class RedTeleOp extends OpMode {
 
         TurretAim.Result aim = TurretAim.aim(pose.x(), pose.y(), pose.heading(), alliance(), targetIsBackCell);
         double turretAngle = aim.turretDeg;
-        double servoPos = applyVisionTrim(aim.servoPos, pose);
+        double servoPos = aim.servoPos;
 
         if (manualMode) {
             double turn = Math.abs(gamepad2.right_stick_x) > STICK_DEADZONE ? gamepad2.right_stick_x : 0;
@@ -217,7 +189,7 @@ public class RedTeleOp extends OpMode {
         }
         lastCommandedAngle = turretAngle;
 
-        double distance = getShooterDistance(pose, aim.distanceIn);
+        double distance = aim.distanceIn;
         updateShooterForDistance(distance);
 
         telemetry.addData("Hive target", targetIsBackCell ? "BACK" : "AUDIENCE");
@@ -225,59 +197,12 @@ public class RedTeleOp extends OpMode {
         telemetry.addData("Distance", distance);
     }
 
-    // Tags face down only when that cell's opening faces up - seeing a cell's
-    // tags means aim at that same cell, not the other one.
+    // D-pad up = far (back) CELL, down = audience CELL, left = back to automatic (half line).
     private void updateHiveCellTarget(Pose pose) {
-        boolean sawBack = false, sawAudience = false;
-        for (AprilTagDetection d : aprilTag.getDetections()) {
-            for (int id : BACK_CELL_TAGS)     if (tagId(d) == id) sawBack = true;
-            for (int id : AUDIENCE_CELL_TAGS) if (tagId(d) == id) sawAudience = true;
-        }
-        if (sawBack && !sawAudience) { targetIsBackCell = true;  lastVisionUpdateTime = System.currentTimeMillis(); }
-        else if (sawAudience && !sawBack) { targetIsBackCell = false; lastVisionUpdateTime = System.currentTimeMillis(); }
-
-        if (gamepad2.dpad_up)   { targetIsBackCell = true;  lastManualOverrideTime = System.currentTimeMillis(); }
-        if (gamepad2.dpad_down) { targetIsBackCell = false; lastManualOverrideTime = System.currentTimeMillis(); }
-
-        // No recent tag or manual input: same rule as TurretAim and the autos (lower half = audience CELL).
-        boolean visionFresh = System.currentTimeMillis() - lastVisionUpdateTime < VISION_STALE_MS;
-        boolean recentOverride = System.currentTimeMillis() - lastManualOverrideTime < MANUAL_OVERRIDE_GRACE_MS;
-        if (!visionFresh && !recentOverride) {
-            targetIsBackCell = pose.y() >= FIELD_HALF_DIVIDER;
-        }
-    }
-
-    // Small live correction on top of the odometry aim, only once past the
-    // half-field line and a hive tag is actually visible - odometry drifts
-    // (especially after a collision), a visible tag doesn't.
-    private double applyVisionTrim(double odometryServoPos, Pose pose) {
-        if (pose.y() <= FIELD_HALF_DIVIDER) return odometryServoPos;
-        for (AprilTagDetection d : aprilTag.getDetections()) {
-            if (!containsId(BACK_CELL_TAGS, tagId(d)) && !containsId(AUDIENCE_CELL_TAGS, tagId(d))) continue;
-            double trim = Range.clip(TurretAim.TURRET_SIGN * d.ftcPose.bearing * VISION_TRIM_GAIN, -MAX_VISION_TRIM_PER_LOOP, MAX_VISION_TRIM_PER_LOOP);
-            return Range.clip(odometryServoPos + trim, TURRET_MIN_POS, TURRET_MAX_POS);
-        }
-        return odometryServoPos;
-    }
-
-    private double getShooterDistance(Pose pose, double odometryDistance) {
-        if (pose.y() <= FIELD_HALF_DIVIDER) return odometryDistance;
-        for (AprilTagDetection d : aprilTag.getDetections()) {
-            if (containsId(BACK_CELL_TAGS, tagId(d)) || containsId(AUDIENCE_CELL_TAGS, tagId(d))) return d.ftcPose.range;
-        }
-        return odometryDistance;
-    }
-
-    // FTC SDK 12.0: AprilTagDetection is now a base class; only single tags have an id.
-    // Cluster detections return -1 here (so they are ignored by the tag-id matching above).
-    // TODO(pedro3): if the BIOBUZZ library returns clusters, match on clusterDet.metadata instead.
-    private int tagId(AprilTagDetection d) {
-        return (d instanceof AprilTagSingleDetection) ? ((AprilTagSingleDetection) d).id : -1;
-    }
-
-    private boolean containsId(int[] ids, int id) {
-        for (int x : ids) if (x == id) return true;
-        return false;
+        if (gamepad2.dpad_up)   cellOverride = true;
+        if (gamepad2.dpad_down) cellOverride = false;
+        if (gamepad2.dpad_left) cellOverride = null;
+        targetIsBackCell = cellOverride != null ? cellOverride : pose.y() >= FIELD_HALF_DIVIDER;
     }
 
     private boolean turretReady() {
@@ -326,6 +251,5 @@ public class RedTeleOp extends OpMode {
         if (feedingMotor != null) feedingMotor.setPower(0);
         if (flywheel != null) flywheel.setPower(0);
         if (follower != null) { follower.stop(); follower.update(); } // zeroes the drive motors
-        if (visionPortal != null) visionPortal.close();
     }
 }
