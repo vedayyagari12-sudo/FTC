@@ -34,8 +34,11 @@ The robot configuration that is active on the Driver Station, copied from the "A
 
 | Name | Used by |
 |---|---|
-| `FrontLeft`, `FrontRight`, `BackLeft`, `BackRight`, `pinpoint` | `pedro/Constants.java` (every OpMode that uses Pedro) |
-| `flywheel`, `intakemotor`, `feedingmotor` | the four full autos, `Turrettest` |
+| `FrontLeft`, `FrontRight`, `BackLeft`, `BackRight` | `pedro/Constants.java` (every OpMode that uses Pedro), `IntakeTeleOp` |
+| `pinpoint` | `pedro/Constants.java` |
+| `flywheel` | the four full autos, `Turrettest`, `RedTeleOp` |
+| `intakemotor` | the four full autos, `Turrettest`, `RedTeleOp`, `IntakeTeleOp` |
+| `feedingmotor` | the four full autos, `Turrettest` |
 | `turretServo` | the four full autos (`TurretAim`), `Turrettest` |
 | `Intakeservo` | the four full autos (runs with `intakemotor`) |
 | `rampServo` | `Turrettest` only, and commented out there. The autos leave it alone until its down/up positions are measured. |
@@ -47,3 +50,9 @@ These ask for names that are not in `26season`, so they will crash at INIT on th
 
 - `RedTeleOp`: `intakeservo`, `intakeservo2`, `turretServo1`, `turretServo2`, `hoodServo`, `Webcam 1`
 - `IntakeTeleOp`: `intakeservo`, `intakeservo2`, `shootmotor`, `intakeservo3`
+
+## Photos
+
+![Expansion Hub 2 and the top of the Control Hub](doc/hardware/26season-expansion-hub.png)
+
+![Control Hub motors, servo, I2C and webcam](doc/hardware/26season-control-hub.png)
