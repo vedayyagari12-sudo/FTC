@@ -44,11 +44,16 @@ public class TurretAim {
 
     /** x, y in inches and headingRad in radians straight from follower.pose(); alliance is RED or BLUE. */
     public static Result aim(double x, double y, double headingRad, int alliance) {
+        return aim(x, y, headingRad, alliance, y >= 72);
+    }
+
+    /** Same, but the caller picks the CELL (RedTeleOp picks it from AprilTags or the D-pad). */
+    public static Result aim(double x, double y, double headingRad, int alliance, boolean targetFar) {
         Result r = new Result();
         double px = x + PIVOT_FORWARD_IN * Math.cos(headingRad) - PIVOT_LEFT_IN * Math.sin(headingRad);
         double py = y + PIVOT_FORWARD_IN * Math.sin(headingRad) + PIVOT_LEFT_IN * Math.cos(headingRad);
 
-        r.targetFar = y >= 72;
+        r.targetFar = targetFar;
         r.targetX = 72 + alliance * HIVE_SEP;
         r.targetY = 72 + (r.targetFar ? CELL_OFF : -CELL_OFF);
 
@@ -78,6 +83,8 @@ public class TurretAim {
         check(r.targetFar && !r.outOfRange, "far red in range");
         r = aim(60, 20, Math.toRadians(-90), RED);                    // facing away from the HIVE: needs about 180, so it clamps
         check(r.outOfRange && near(Math.abs(r.turretDeg), 150, 1e-9), "clamp");
+        r = aim(61, 34, Math.toRadians(90), RED, true);               // forced far CELL from the lower half
+        check(r.targetFar && near(r.targetY, 88.5, 1e-9), "forced target");
         check(near(wrap180(190), -170, 1e-9) && near(wrap180(-180), -180, 1e-9), "wrap");
         System.out.println("TurretAim self-check passed");
     }

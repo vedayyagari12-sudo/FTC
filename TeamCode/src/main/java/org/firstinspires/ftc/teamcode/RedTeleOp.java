@@ -61,20 +61,18 @@ public class RedTeleOp extends OpMode {
     final int[] BACK_CELL_TAGS     = {0, 1, 2, 3};
     final int[] AUDIENCE_CELL_TAGS = {4, 5, 6, 7};
 
-    // Field coordinates - PLACEHOLDERS, measure from your real field.
-    final double BACK_CELL_X = 100, BACK_CELL_Y = 48;
-    final double AUDIENCE_CELL_X = 100, AUDIENCE_CELL_Y = 73.5;
+    // "Back" cell = TurretAim's far CELL. Cell positions, turret mapping and limits all come from TurretAim.java.
 
     final long VISION_STALE_MS = 1000;
     final long MANUAL_OVERRIDE_GRACE_MS = 1000;
 
-    // Field-half fallback guess used only while no tag has been seen recently.
-    final double FIELD_HALF_DIVIDER = 70.75;
-    final boolean LOWER_HALF_IS_BACK_CELL = true; // verify by testing, may need to flip
+    // Half line: below it TurretAim aims at the audience CELL, above it the far (back) CELL.
+    final double FIELD_HALF_DIVIDER = 72;
 
     /* ---------------- TURRET CONFIG ---------------- */
-    final double TURRET_PAN_MIN_DEG = -90, TURRET_PAN_MAX_DEG = 90;
-    final double TURRET_PAN_MIN_POS = 0.0, TURRET_PAN_MAX_POS = 1.0;
+    // Servo positions for TurretAim's turn limit to each side (manual mode and vision trim stay inside these).
+    final double TURRET_MIN_POS = Math.max(0.0, TurretAim.TURRET_CENTER - TurretAim.TURRET_LIMIT_DEG / TurretAim.TURRET_RANGE_DEG);
+    final double TURRET_MAX_POS = Math.min(1.0, TurretAim.TURRET_CENTER + TurretAim.TURRET_LIMIT_DEG / TurretAim.TURRET_RANGE_DEG);
     final double TURRET_TOLERANCE_DEG = 2.0;
     final long TURRET_SETTLE_MS = 150;
 
@@ -110,8 +108,8 @@ public class RedTeleOp extends OpMode {
 
     boolean manualMode = false;
     boolean modeToggleReady = true;
-    double manualTurretPos = 0.5;
-    double lastTurretPos = 0.5;
+    double manualTurretPos = TurretAim.TURRET_CENTER;
+    double lastTurretPos = TurretAim.TURRET_CENTER;
 
     /* ---------------- INIT ---------------- */
     @Override
@@ -198,21 +196,13 @@ public class RedTeleOp extends OpMode {
 
         updateHiveCellTarget(pose);
 
-        double targetX = targetIsBackCell ? BACK_CELL_X : AUDIENCE_CELL_X;
-        double targetY = targetIsBackCell ? BACK_CELL_Y : AUDIENCE_CELL_Y;
-        double odometryDistance = Math.hypot(targetX - pose.x(), targetY - pose.y());
-
-        double fieldAngle = Math.toDegrees(Math.atan2(targetY - pose.y(), targetX - pose.x()));
-        double turretAngle = Range.clip(normalizeAngle(fieldAngle - Math.toDegrees(pose.heading())),
-                TURRET_PAN_MIN_DEG, TURRET_PAN_MAX_DEG);
-        double servoPos = (turretAngle - TURRET_PAN_MIN_DEG) / (TURRET_PAN_MAX_DEG - TURRET_PAN_MIN_DEG)
-                * (TURRET_PAN_MAX_POS - TURRET_PAN_MIN_POS) + TURRET_PAN_MIN_POS;
-
-        servoPos = applyVisionTrim(servoPos, pose);
+        TurretAim.Result aim = TurretAim.aim(pose.x(), pose.y(), pose.heading(), TurretAim.RED, targetIsBackCell);
+        double turretAngle = aim.turretDeg;
+        double servoPos = applyVisionTrim(aim.servoPos, pose);
 
         if (manualMode) {
             double turn = Math.abs(gamepad2.right_stick_x) > STICK_DEADZONE ? gamepad2.right_stick_x : 0;
-            manualTurretPos = Range.clip(manualTurretPos + turn * MANUAL_TURRET_RATE, TURRET_PAN_MIN_POS, TURRET_PAN_MAX_POS);
+            manualTurretPos = Range.clip(manualTurretPos + turn * MANUAL_TURRET_RATE, TURRET_MIN_POS, TURRET_MAX_POS);
             servoPos = manualTurretPos;
         }
         turretServo.setPosition(servoPos);
@@ -223,10 +213,11 @@ public class RedTeleOp extends OpMode {
         }
         lastCommandedAngle = turretAngle;
 
-        double distance = getShooterDistance(pose, odometryDistance);
+        double distance = getShooterDistance(pose, aim.distanceIn);
         updateShooterForDistance(distance);
 
         telemetry.addData("Hive target", targetIsBackCell ? "BACK" : "AUDIENCE");
+        telemetry.addData("Turret", "%.1f deg, servo %.3f%s", aim.turretDeg, servoPos, aim.outOfRange ? " (OUT OF RANGE)" : "");
         telemetry.addData("Distance", distance);
     }
 
@@ -244,12 +235,11 @@ public class RedTeleOp extends OpMode {
         if (gamepad2.dpad_up)   { targetIsBackCell = true;  lastManualOverrideTime = System.currentTimeMillis(); }
         if (gamepad2.dpad_down) { targetIsBackCell = false; lastManualOverrideTime = System.currentTimeMillis(); }
 
-        // No recent tag or manual input: guess from which half of the field we're on.
+        // No recent tag or manual input: same rule as TurretAim and the autos (lower half = audience CELL).
         boolean visionFresh = System.currentTimeMillis() - lastVisionUpdateTime < VISION_STALE_MS;
         boolean recentOverride = System.currentTimeMillis() - lastManualOverrideTime < MANUAL_OVERRIDE_GRACE_MS;
         if (!visionFresh && !recentOverride) {
-            boolean onLowerHalf = pose.y() < FIELD_HALF_DIVIDER;
-            targetIsBackCell = (onLowerHalf == LOWER_HALF_IS_BACK_CELL);
+            targetIsBackCell = pose.y() >= FIELD_HALF_DIVIDER;
         }
     }
 
@@ -260,8 +250,8 @@ public class RedTeleOp extends OpMode {
         if (pose.y() <= FIELD_HALF_DIVIDER) return odometryServoPos;
         for (AprilTagDetection d : aprilTag.getDetections()) {
             if (!containsId(BACK_CELL_TAGS, tagId(d)) && !containsId(AUDIENCE_CELL_TAGS, tagId(d))) continue;
-            double trim = Range.clip(d.ftcPose.bearing * VISION_TRIM_GAIN, -MAX_VISION_TRIM_PER_LOOP, MAX_VISION_TRIM_PER_LOOP);
-            return Range.clip(odometryServoPos + trim, TURRET_PAN_MIN_POS, TURRET_PAN_MAX_POS);
+            double trim = Range.clip(TurretAim.TURRET_SIGN * d.ftcPose.bearing * VISION_TRIM_GAIN, -MAX_VISION_TRIM_PER_LOOP, MAX_VISION_TRIM_PER_LOOP);
+            return Range.clip(odometryServoPos + trim, TURRET_MIN_POS, TURRET_MAX_POS);
         }
         return odometryServoPos;
     }
@@ -288,12 +278,6 @@ public class RedTeleOp extends OpMode {
 
     private boolean turretReady() {
         return System.currentTimeMillis() - lastAngleChangeTime > TURRET_SETTLE_MS && flywheelAtSpeed;
-    }
-
-    private double normalizeAngle(double deg) {
-        while (deg > 180) deg -= 360;
-        while (deg < -180) deg += 360;
-        return deg;
     }
 
     // Blends between the nearest measured distance/RPM points in the table.
