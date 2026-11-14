@@ -131,25 +131,28 @@ The same formulas are in the Desmos simulations (`biobuzz-turret-red.html` and `
 
 ## 7. Hardware names in one table
 
-These must match the Driver Station "Configure Robot" screen exactly.
+These must match the Driver Station "Configure Robot" screen exactly. The robot's real config (`26season`, with hub and port for each device) is in [HARDWARE_CONFIG.md](HARDWARE_CONFIG.md).
 
 | Name | Used by | Notes |
 |---|---|---|
-| `FrontLeft`, `BackLeft`, `FrontRight`, `BackRight` | `pedro/Constants.java`, `IntakeTeleOp` | Drive motors |
-| `pinpoint` | `pedro/Constants.java` | goBILDA Pinpoint, I2C port other than 0 |
-| `flywheel` | autos, `RedTeleOp`, `Turrettest` | Shooter flywheel motor |
-| `intakemotor` | autos, TeleOps | Intake motor |
-| `feedingmotor` | autos, `Turrettest` | Feeds balls into the flywheel |
-| `turretServo` | autos (new), `Turrettest` | Single turret servo. Name is a placeholder, confirm it |
-| `turretServo1`, `turretServo2` | `RedTeleOp` | Two turret servos in that file (see section 8) |
-| `hoodServo`, `intakeservo`, `intakeservo2`, `Webcam 1` | `RedTeleOp` | Hood, intake servos, camera |
-| `shootmotor`, `intakeservo3` | `IntakeTeleOp` | Ram mechanism |
+| `FrontLeft`, `BackLeft`, `FrontRight`, `BackRight` | `pedro/Constants.java`, `IntakeTeleOp` | Drive motors, Control Hub motors 0 to 3 |
+| `pinpoint` | `pedro/Constants.java` | goBILDA Pinpoint, Control Hub I2C bus 1 |
+| `imu` | nothing yet | REV internal IMU, Control Hub I2C bus 0 |
+| `flywheel` | autos, `RedTeleOp`, `Turrettest` | Shooter flywheel motor, Expansion Hub motor 0 |
+| `intakemotor` | autos, TeleOps | Intake motor, Expansion Hub motor 1 |
+| `feedingmotor` | autos, `Turrettest` | Feeds balls into the flywheel, Expansion Hub motor 2 |
+| `Intakeservo` | autos | Intake CR servo, Control Hub servo 0. Capital I |
+| `turretServo` | autos, `Turrettest` | Single turret servo, Expansion Hub servo 1. Confirmed in the config |
+| `rampServo` | `Turrettest` (commented out) | Ramp servo, Expansion Hub servo 0. Not driven by the autos yet |
+| `turretServo1`, `turretServo2` | `RedTeleOp` | NOT in the config: the robot has one turret servo |
+| `hoodServo`, `intakeservo`, `intakeservo2`, `Webcam 1` | `RedTeleOp` | NOT in the config, `RedTeleOp` crashes at INIT until updated |
+| `shootmotor`, `intakeservo3` | `IntakeTeleOp` | NOT in the config, `IntakeTeleOp` crashes at INIT until updated |
 
 ## 8. Places where the code disagrees with itself (confirm on the robot)
 
 These were already in the code before the turret aiming was added. They decide whether the turret moves the right way and the right amount.
 
-1. **One turret servo or two?** `Turrettest` and the new auto code use one servo named `turretServo`. `RedTeleOp` drives two servos named `turretServo1` and `turretServo2`. Check the robot configuration and fix the name (`TURRET_SERVO_NAME` in each auto) or the TeleOp.
+1. **One turret servo or two? Settled: one.** The `26season` config has a single `turretServo` (Expansion Hub servo 1), which is what `Turrettest` and the autos use. `RedTeleOp` still drives `turretServo1` and `turretServo2` and needs updating.
 2. **Turret travel.** `Turrettest` assumes 300 degrees of turret per full servo travel (plus or minus 150). `RedTeleOp` maps plus or minus 90 degrees onto the full servo range (180 degrees). `TurretAim.TURRET_RANGE_DEG` follows `Turrettest`. Measure the real travel with `Turrettest` and set the constant.
 3. **Direction.** `Turrettest` calls a higher servo position "turret right" (clockwise). `RedTeleOp` makes a left (counter-clockwise) turn a higher servo position. `TurretAim.TURRET_SIGN = 1.0` follows `RedTeleOp`. If the turret swings the wrong way in an auto, set it to `-1.0`.
 4. **TeleOp HIVE coordinates.** `RedTeleOp` aims at placeholder points (100, 48) and (100, 73.5) with a half line at 70.75. The manual-based numbers used by `TurretAim` are x = 59.25 (red HIVE), cells at y = 55.5 and 88.5, half line at 72. If you want the TeleOp to share `TurretAim`, that is a small follow-up change.

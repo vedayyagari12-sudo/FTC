@@ -7,6 +7,7 @@ import com.pedropathing.math.Pose;
 import com.pedropathing.paths.Path;
 import com.qualcomm.robotcore.eventloop.opmode.Autonomous;
 import com.qualcomm.robotcore.eventloop.opmode.OpMode;
+import com.qualcomm.robotcore.hardware.CRServo;
 import com.qualcomm.robotcore.hardware.DcMotor;
 import com.qualcomm.robotcore.hardware.DcMotorEx;
 import com.qualcomm.robotcore.hardware.Servo;
@@ -72,7 +73,7 @@ public class CloseBlueAlliance1 extends OpMode {
     static final double BACKUP_IN = 3;          // at the very end
 
     /* ---------------- MECHANISMS (same names/values as TurretTest + RedTeleOp) ---------------- */
-    static final String TURRET_SERVO_NAME = "turretServo"; // same name as Turrettest - TODO confirm in the robot config
+    static final String TURRET_SERVO_NAME = "turretServo"; // Expansion Hub 2, servo port 1 (see HARDWARE_CONFIG.md)
     static final int ALLIANCE = TurretAim.BLUE;           // which HIVE the turret aims at
     static final String FLYWHEEL_NAME = "flywheel";
     static final String INTAKE_NAME   = "intakemotor";
@@ -82,9 +83,12 @@ public class CloseBlueAlliance1 extends OpMode {
     static final String FEEDING_NAME  = "feedingmotor";
     static final double FEED_POWER    = -1.0;           // feeding motor power while shooting
     static final double INTAKE_POWER = 1.0;            // same as TurretTest
+    static final String INTAKE_SERVO_NAME = "Intakeservo"; // CR servo, Control Hub servo port 0 (capital I: names are case-sensitive)
+    static final double INTAKE_SERVO_POWER = -1.0;        // same sign as IntakeTeleOp (servo-fix PR); flip if it pushes balls out
 
     private DcMotorEx flywheel;
     private DcMotor intakeMotor;
+    private CRServo intakeServo;
     private DcMotor feedingMotor;
     private Servo turretServo;
     private TurretAim.Result aim; // latest turret aim, shown in telemetry
@@ -115,6 +119,8 @@ public class CloseBlueAlliance1 extends OpMode {
         intakeMotor.setMode(DcMotor.RunMode.RUN_WITHOUT_ENCODER);
         intakeMotor.setZeroPowerBehavior(DcMotor.ZeroPowerBehavior.BRAKE);
         intakeMotor.setPower(0);
+        intakeServo = hardwareMap.get(CRServo.class, INTAKE_SERVO_NAME);
+        intakeServo.setPower(0);
         feedingMotor = hardwareMap.dcMotor.get(FEEDING_NAME);
         feedingMotor.setMode(DcMotor.RunMode.RUN_WITHOUT_ENCODER);
         feedingMotor.setZeroPowerBehavior(DcMotor.ZeroPowerBehavior.BRAKE);
@@ -175,6 +181,7 @@ public class CloseBlueAlliance1 extends OpMode {
                     } else if (step == 1) {
                         // At the flower: intake on, move left then forward while intaking.
                         intakeMotor.setPower(INTAKE_POWER);
+                        intakeServo.setPower(INTAKE_SERVO_POWER);
                         intakeTimer.reset();
                         followRobotRelative(0, FLOWER_LEFT_IN, P2_END_DEG); // forward 0, left 2
                         state = State.FLOWER_LEFT;
@@ -214,6 +221,7 @@ public class CloseBlueAlliance1 extends OpMode {
                 // Keep intaking until INTAKE_MS total has passed since the intake turned on.
                 if (intakeTimer.milliseconds() >= INTAKE_MS) {
                     intakeMotor.setPower(0);
+                    intakeServo.setPower(0);
                     step = 2;
                     follower.follow(paths[2]);
                     state = State.DRIVING;
@@ -277,6 +285,7 @@ public class CloseBlueAlliance1 extends OpMode {
         }
         if (flywheel != null) flywheel.setPower(0);
         if (intakeMotor != null) intakeMotor.setPower(0);
+        if (intakeServo != null) intakeServo.setPower(0);
         if (feedingMotor != null) feedingMotor.setPower(0);
     }
 }
