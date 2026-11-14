@@ -7,8 +7,10 @@ import com.pedropathing.math.Pose;
 import com.pedropathing.paths.Path;
 import com.qualcomm.robotcore.eventloop.opmode.Autonomous;
 import com.qualcomm.robotcore.eventloop.opmode.OpMode;
+import com.qualcomm.robotcore.hardware.CRServo;
 import com.qualcomm.robotcore.hardware.DcMotor;
 import com.qualcomm.robotcore.hardware.DcMotorEx;
+import com.qualcomm.robotcore.hardware.Servo;
 import com.qualcomm.robotcore.util.ElapsedTime;
 
 import org.firstinspires.ftc.teamcode.pedro.Constants;
@@ -71,6 +73,8 @@ public class CloseRedAlliance1 extends OpMode {
     static final double BACKUP_IN = 3;          // at the very end
 
     /* ---------------- MECHANISMS (same names/values as TurretTest + RedTeleOp) ---------------- */
+    static final String TURRET_SERVO_NAME = "turretServo"; // Expansion Hub 2, servo port 1 (see HARDWARE_CONFIG.md)
+    static final int ALLIANCE = TurretAim.RED;           // which HIVE the turret aims at
     static final String FLYWHEEL_NAME = "flywheel";
     static final String INTAKE_NAME   = "intakemotor";
     static final double FLYWHEEL_RPM  = 2200;
@@ -79,10 +83,15 @@ public class CloseRedAlliance1 extends OpMode {
     static final String FEEDING_NAME  = "feedingmotor";
     static final double FEED_POWER    = -1.0;           // feeding motor power while shooting
     static final double INTAKE_POWER = 1.0;            // same as TurretTest
+    static final String INTAKE_SERVO_NAME = "Intakeservo"; // CR servo, Control Hub servo port 0 (capital I: names are case-sensitive)
+    static final double INTAKE_SERVO_POWER = -1.0;        // same sign as IntakeTeleOp (servo-fix PR); flip if it pushes balls out
 
     private DcMotorEx flywheel;
     private DcMotor intakeMotor;
+    private CRServo intakeServo;
     private DcMotor feedingMotor;
+    private Servo turretServo;
+    private TurretAim.Result aim; // latest turret aim, shown in telemetry
 
     private enum State { REV_WAIT, DRIVING, WAITING, FLOWER_LEFT, FLOWER_FORWARD, INTAKE_WAIT, BACKUP, DONE }
 
@@ -110,12 +119,17 @@ public class CloseRedAlliance1 extends OpMode {
         intakeMotor.setMode(DcMotor.RunMode.RUN_WITHOUT_ENCODER);
         intakeMotor.setZeroPowerBehavior(DcMotor.ZeroPowerBehavior.BRAKE);
         intakeMotor.setPower(0);
+        intakeServo = hardwareMap.get(CRServo.class, INTAKE_SERVO_NAME);
+        intakeServo.setPower(0);
         feedingMotor = hardwareMap.dcMotor.get(FEEDING_NAME);
         feedingMotor.setMode(DcMotor.RunMode.RUN_WITHOUT_ENCODER);
         feedingMotor.setZeroPowerBehavior(DcMotor.ZeroPowerBehavior.BRAKE);
         feedingMotor.setPower(0);
 
         follower.setPose(start);
+
+        turretServo = hardwareMap.get(Servo.class, TURRET_SERVO_NAME);
+        turretServo.setPosition(TurretAim.TURRET_CENTER);
 
         paths = new Path[] {
                 line(start, p1).linear(Math.toRadians(P1_START_DEG), Math.toRadians(P1_END_DEG)),
@@ -133,6 +147,7 @@ public class CloseRedAlliance1 extends OpMode {
     public void start() {
         follower.setPose(new Pose(START_X, START_Y, Math.toRadians(START_HEADING_DEG)));
         follower.update();
+        aimTurret();
         step = 0;
         // Spin the flywheel up FIRST and wait for it before driving Path 1.
         startFlywheel();
@@ -143,6 +158,7 @@ public class CloseRedAlliance1 extends OpMode {
     @Override
     public void loop() {
         follower.update();
+        aimTurret();
 
         switch (state) {
             case REV_WAIT: {
@@ -165,6 +181,7 @@ public class CloseRedAlliance1 extends OpMode {
                     } else if (step == 1) {
                         // At the flower: intake on, move left then forward while intaking.
                         intakeMotor.setPower(INTAKE_POWER);
+                        intakeServo.setPower(INTAKE_SERVO_POWER);
                         intakeTimer.reset();
                         followRobotRelative(0, FLOWER_LEFT_IN, P2_END_DEG); // forward 0, left 2
                         state = State.FLOWER_LEFT;
@@ -204,6 +221,7 @@ public class CloseRedAlliance1 extends OpMode {
                 // Keep intaking until INTAKE_MS total has passed since the intake turned on.
                 if (intakeTimer.milliseconds() >= INTAKE_MS) {
                     intakeMotor.setPower(0);
+                    intakeServo.setPower(0);
                     step = 2;
                     follower.follow(paths[2]);
                     state = State.DRIVING;
@@ -223,6 +241,8 @@ public class CloseRedAlliance1 extends OpMode {
 
         Pose pose = follower.pose();
         telemetry.addData("State", state);
+        telemetry.addData("Turret", "%.1f deg, servo %.3f, %.1f in to the %s CELL%s", aim.turretDeg, aim.servoPos, aim.distanceIn,
+                aim.targetFar ? "far" : "audience", aim.outOfRange ? " (OUT OF RANGE)" : "");
         telemetry.addData("Flywheel RPM", "%.0f (target %.0f)", flywheelRpm(), FLYWHEEL_RPM);
         telemetry.addData("Pose", "x %.1f  y %.1f  heading %.0f deg", pose.x(), pose.y(), Math.toDegrees(pose.heading()));
         telemetry.update();
@@ -242,6 +262,13 @@ public class CloseRedAlliance1 extends OpMode {
         follower.follow(line(from, to).constant(h));
     }
 
+    /** Points the turret at the HIVE CELL for where the robot is right now (see TurretAim.java). */
+    private void aimTurret() {
+        Pose p = follower.pose();
+        aim = TurretAim.aim(p.x(), p.y(), p.heading(), ALLIANCE);
+        turretServo.setPosition(aim.servoPos);
+    }
+
     private double flywheelRpm() {
         return Math.abs(flywheel.getVelocity()) / FLYWHEEL_TICKS_PER_REV * 60.0;
     }
@@ -258,6 +285,7 @@ public class CloseRedAlliance1 extends OpMode {
         }
         if (flywheel != null) flywheel.setPower(0);
         if (intakeMotor != null) intakeMotor.setPower(0);
+        if (intakeServo != null) intakeServo.setPower(0);
         if (feedingMotor != null) feedingMotor.setPower(0);
     }
 }

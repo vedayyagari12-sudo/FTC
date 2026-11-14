@@ -28,21 +28,22 @@ public class RedTeleOp extends OpMode {
     final String BACK_LEFT_NAME     = "BackLeft";
     final String BACK_RIGHT_NAME    = "BackRight";
     final String INTAKE_MOTOR_NAME  = "intakemotor";
-    final String INTAKE_SERVO1_NAME = "intakeservo";
-    final String INTAKE_SERVO2_NAME = "intakeservo2";
-    final String TURRET_SERVO1_NAME = "turretServo1";
-    final String TURRET_SERVO2_NAME = "turretServo2";
-    final String HOOD_SERVO_NAME    = "hoodServo";
+    // All names below match the 26season config (see HARDWARE_CONFIG.md).
+    final String INTAKE_SERVO_NAME  = "Intakeservo";  // CR servo, Control Hub servo 0 (capital I)
+    final String TURRET_SERVO_NAME  = "turretServo";  // the robot has ONE turret servo, Expansion Hub servo 1
     final String FLYWHEEL_NAME      = "flywheel";
-    final String WEBCAM_NAME        = "Webcam 1";
+    final String FEEDING_MOTOR_NAME = "feedingmotor"; // pushes balls into the flywheel
+    final String WEBCAM_NAME        = "Webcam";       // TODO confirm: the config photo cuts off right at this line
+    // No hood servo in the config. rampServo (Expansion Hub servo 0) is probably the hood, but its safe
+    // positions are not measured yet (see Turrettest), so this TeleOp does not drive it.
 
     /* ---------------- HARDWARE ---------------- */
     DcMotor IntakeMotor; // drive wheels are driven by Pedro 3's Follower (see loop())
-    CRServo IntakeServo1, IntakeServo2;
+    CRServo IntakeServo;
 
-    Servo turretServo1, turretServo2;
-    Servo hood;
+    Servo turretServo;
     DcMotorEx flywheel;
+    DcMotor feedingMotor;
     Follower follower;
     AprilTagProcessor aprilTag;
     VisionPortal visionPortal;
@@ -50,30 +51,32 @@ public class RedTeleOp extends OpMode {
 
     /* ---------------- DRIVE / INTAKE TUNING ---------------- */
     final double INTAKE_MOTOR_POWER  = -1.0;
-    final double INTAKE_SERVO1_POWER =  1.0;
-    final double INTAKE_SERVO2_POWER = -1.0;
+    final double INTAKE_SERVO_POWER  = -1.0; // same sign as the autos and IntakeTeleOp; flip if it pushes balls out
+    final double FEED_POWER          = -1.0; // same as Turrettest and the autos
     final double TURN_SCALE = 0.6;
 
-    /* ---------------- HIVE / TAG CONFIG (red only) ---------------- */
+    /* ---------------- HIVE / TAG CONFIG ---------------- */
+    // Which alliance HIVE to aim at. BlueTeleOp extends this class and returns TurretAim.BLUE.
+    int alliance() { return TurretAim.RED; }
+
+    // shortcut: tag ids are PLACEHOLDERS shared by both alliances; once the real BIOBUZZ ids are known, give BlueTeleOp its own.
     // Each cell's AprilTag faces down toward the tiles only when that cell's
     // opening faces up - so seeing a cell's tags means aim at THAT cell.
     final int[] BACK_CELL_TAGS     = {0, 1, 2, 3};
     final int[] AUDIENCE_CELL_TAGS = {4, 5, 6, 7};
 
-    // Field coordinates - PLACEHOLDERS, measure from your real field.
-    final double BACK_CELL_X = 100, BACK_CELL_Y = 48;
-    final double AUDIENCE_CELL_X = 100, AUDIENCE_CELL_Y = 73.5;
+    // "Back" cell = TurretAim's far CELL. Cell positions, turret mapping and limits all come from TurretAim.java.
 
     final long VISION_STALE_MS = 1000;
     final long MANUAL_OVERRIDE_GRACE_MS = 1000;
 
-    // Field-half fallback guess used only while no tag has been seen recently.
-    final double FIELD_HALF_DIVIDER = 70.75;
-    final boolean LOWER_HALF_IS_BACK_CELL = true; // verify by testing, may need to flip
+    // Half line: below it TurretAim aims at the audience CELL, above it the far (back) CELL.
+    final double FIELD_HALF_DIVIDER = 72;
 
     /* ---------------- TURRET CONFIG ---------------- */
-    final double TURRET_PAN_MIN_DEG = -90, TURRET_PAN_MAX_DEG = 90;
-    final double TURRET_PAN_MIN_POS = 0.0, TURRET_PAN_MAX_POS = 1.0;
+    // Servo positions for TurretAim's turn limit to each side (manual mode and vision trim stay inside these).
+    final double TURRET_MIN_POS = Math.max(0.0, TurretAim.TURRET_CENTER - TurretAim.TURRET_LIMIT_DEG / TurretAim.TURRET_RANGE_DEG);
+    final double TURRET_MAX_POS = Math.min(1.0, TurretAim.TURRET_CENTER + TurretAim.TURRET_LIMIT_DEG / TurretAim.TURRET_RANGE_DEG);
     final double TURRET_TOLERANCE_DEG = 2.0;
     final long TURRET_SETTLE_MS = 150;
 
@@ -84,12 +87,10 @@ public class RedTeleOp extends OpMode {
 
     /* ---------------- MANUAL MODE CONFIG ---------------- */
     final double MANUAL_TURRET_RATE = 0.01;
-    final double MANUAL_HOOD_RATE = 0.01;
-    final double HOOD_MIN_POS = 0.0, HOOD_MAX_POS = 1.0;
     final double STICK_DEADZONE = 0.1;
 
     /* ---------------- SHOOTER CONFIG ---------------- */
-    // {distance in, RPM, hood pos} - PLACEHOLDER rows, replace with tested values.
+    // {distance in, RPM, hood pos} - hood pos is not used until the ramp is wired in. PLACEHOLDER rows, replace with tested values.
     final double[][] shotTable = {
         {24, 2400, 0.30},
         {60, 2900, 0.45},
@@ -111,28 +112,27 @@ public class RedTeleOp extends OpMode {
 
     boolean manualMode = false;
     boolean modeToggleReady = true;
-    double manualTurretPos = 0.5;
-    double manualHoodPos = 0.3;
-    double lastTurretPos = 0.5;
-    double lastHoodPos = 0.3;
+    double manualTurretPos = TurretAim.TURRET_CENTER;
+    double lastTurretPos = TurretAim.TURRET_CENTER;
 
     /* ---------------- INIT ---------------- */
     @Override
     public void init() {
         IntakeMotor  = hardwareMap.dcMotor.get(INTAKE_MOTOR_NAME);
-        IntakeServo1 = hardwareMap.get(CRServo.class, INTAKE_SERVO1_NAME);
-        IntakeServo2 = hardwareMap.get(CRServo.class, INTAKE_SERVO2_NAME);
+        IntakeServo  = hardwareMap.get(CRServo.class, INTAKE_SERVO_NAME);
 
         IntakeMotor.setMode(DcMotor.RunMode.RUN_WITHOUT_ENCODER);
         IntakeMotor.setZeroPowerBehavior(DcMotor.ZeroPowerBehavior.BRAKE);
         stopIntake();
 
-        turretServo1 = hardwareMap.get(Servo.class, TURRET_SERVO1_NAME);
-        turretServo2 = hardwareMap.get(Servo.class, TURRET_SERVO2_NAME);
-        hood         = hardwareMap.get(Servo.class, HOOD_SERVO_NAME);
+        turretServo  = hardwareMap.get(Servo.class, TURRET_SERVO_NAME);
         flywheel     = hardwareMap.get(DcMotorEx.class, FLYWHEEL_NAME);
-        // If one turret servo fights the other, flip this to REVERSE.
-        turretServo2.setDirection(Servo.Direction.FORWARD);
+        // The flywheel shoots with NEGATIVE power (autos, Turrettest); reverse it so the RPM math here stays positive.
+        flywheel.setDirection(DcMotor.Direction.REVERSE);
+        feedingMotor = hardwareMap.dcMotor.get(FEEDING_MOTOR_NAME);
+        feedingMotor.setMode(DcMotor.RunMode.RUN_WITHOUT_ENCODER);
+        feedingMotor.setZeroPowerBehavior(DcMotor.ZeroPowerBehavior.BRAKE);
+        feedingMotor.setPower(0);
         flywheelPID = new PIDController(0.001, 0, 0); // TODO: your tuned gains
 
         follower = Constants.create(hardwareMap); // Pedro 3
@@ -144,7 +144,7 @@ public class RedTeleOp extends OpMode {
                 .addProcessor(aprilTag)
                 .build();
 
-        telemetry.addLine("Initialized. GP2: B intake, LB auto/manual, RT fire.");
+        telemetry.addLine((alliance() == TurretAim.RED ? "Red" : "Blue") + " TeleOp initialized. GP2: B intake, LB auto/manual, RT fire.");
         telemetry.update();
     }
 
@@ -174,9 +174,8 @@ public class RedTeleOp extends OpMode {
         if (gamepad2.left_bumper && modeToggleReady) {
             manualMode = !manualMode;
             modeToggleReady = false;
-            // Start manual from wherever auto left the turret/hood so nothing jumps.
+            // Start manual from wherever auto left the turret so nothing jumps.
             manualTurretPos = lastTurretPos;
-            manualHoodPos = lastHoodPos;
         }
 
         /* -------- TURRET / SHOOTER -------- */
@@ -185,9 +184,7 @@ public class RedTeleOp extends OpMode {
         // Fire on gamepad2 RT in both modes. Auto waits for aim + flywheel,
         // manual only waits for flywheel since the driver is aiming.
         boolean readyToFire = manualMode ? flywheelAtSpeed : turretReady();
-        if (gamepad2.right_trigger > 0.5 && readyToFire) {
-            // TODO: trigger your feed/spindexer mechanism here
-        }
+        feedingMotor.setPower(gamepad2.right_trigger > 0.5 && readyToFire ? FEED_POWER : 0);
 
         telemetry.addData("Aim mode", manualMode ? "MANUAL" : "AUTO");
         telemetry.addData("Ready to fire", readyToFire);
@@ -203,25 +200,16 @@ public class RedTeleOp extends OpMode {
 
         updateHiveCellTarget(pose);
 
-        double targetX = targetIsBackCell ? BACK_CELL_X : AUDIENCE_CELL_X;
-        double targetY = targetIsBackCell ? BACK_CELL_Y : AUDIENCE_CELL_Y;
-        double odometryDistance = Math.hypot(targetX - pose.x(), targetY - pose.y());
-
-        double fieldAngle = Math.toDegrees(Math.atan2(targetY - pose.y(), targetX - pose.x()));
-        double turretAngle = Range.clip(normalizeAngle(fieldAngle - Math.toDegrees(pose.heading())),
-                TURRET_PAN_MIN_DEG, TURRET_PAN_MAX_DEG);
-        double servoPos = (turretAngle - TURRET_PAN_MIN_DEG) / (TURRET_PAN_MAX_DEG - TURRET_PAN_MIN_DEG)
-                * (TURRET_PAN_MAX_POS - TURRET_PAN_MIN_POS) + TURRET_PAN_MIN_POS;
-
-        servoPos = applyVisionTrim(servoPos, pose);
+        TurretAim.Result aim = TurretAim.aim(pose.x(), pose.y(), pose.heading(), alliance(), targetIsBackCell);
+        double turretAngle = aim.turretDeg;
+        double servoPos = applyVisionTrim(aim.servoPos, pose);
 
         if (manualMode) {
             double turn = Math.abs(gamepad2.right_stick_x) > STICK_DEADZONE ? gamepad2.right_stick_x : 0;
-            manualTurretPos = Range.clip(manualTurretPos + turn * MANUAL_TURRET_RATE, TURRET_PAN_MIN_POS, TURRET_PAN_MAX_POS);
+            manualTurretPos = Range.clip(manualTurretPos + turn * MANUAL_TURRET_RATE, TURRET_MIN_POS, TURRET_MAX_POS);
             servoPos = manualTurretPos;
         }
-        turretServo1.setPosition(servoPos);
-        turretServo2.setPosition(servoPos);
+        turretServo.setPosition(servoPos);
         lastTurretPos = servoPos;
 
         if (Double.isNaN(lastCommandedAngle) || Math.abs(turretAngle - lastCommandedAngle) > TURRET_TOLERANCE_DEG) {
@@ -229,10 +217,11 @@ public class RedTeleOp extends OpMode {
         }
         lastCommandedAngle = turretAngle;
 
-        double distance = getShooterDistance(pose, odometryDistance);
+        double distance = getShooterDistance(pose, aim.distanceIn);
         updateShooterForDistance(distance);
 
         telemetry.addData("Hive target", targetIsBackCell ? "BACK" : "AUDIENCE");
+        telemetry.addData("Turret", "%.1f deg, servo %.3f%s", aim.turretDeg, servoPos, aim.outOfRange ? " (OUT OF RANGE)" : "");
         telemetry.addData("Distance", distance);
     }
 
@@ -250,12 +239,11 @@ public class RedTeleOp extends OpMode {
         if (gamepad2.dpad_up)   { targetIsBackCell = true;  lastManualOverrideTime = System.currentTimeMillis(); }
         if (gamepad2.dpad_down) { targetIsBackCell = false; lastManualOverrideTime = System.currentTimeMillis(); }
 
-        // No recent tag or manual input: guess from which half of the field we're on.
+        // No recent tag or manual input: same rule as TurretAim and the autos (lower half = audience CELL).
         boolean visionFresh = System.currentTimeMillis() - lastVisionUpdateTime < VISION_STALE_MS;
         boolean recentOverride = System.currentTimeMillis() - lastManualOverrideTime < MANUAL_OVERRIDE_GRACE_MS;
         if (!visionFresh && !recentOverride) {
-            boolean onLowerHalf = pose.y() < FIELD_HALF_DIVIDER;
-            targetIsBackCell = (onLowerHalf == LOWER_HALF_IS_BACK_CELL);
+            targetIsBackCell = pose.y() >= FIELD_HALF_DIVIDER;
         }
     }
 
@@ -266,8 +254,8 @@ public class RedTeleOp extends OpMode {
         if (pose.y() <= FIELD_HALF_DIVIDER) return odometryServoPos;
         for (AprilTagDetection d : aprilTag.getDetections()) {
             if (!containsId(BACK_CELL_TAGS, tagId(d)) && !containsId(AUDIENCE_CELL_TAGS, tagId(d))) continue;
-            double trim = Range.clip(d.ftcPose.bearing * VISION_TRIM_GAIN, -MAX_VISION_TRIM_PER_LOOP, MAX_VISION_TRIM_PER_LOOP);
-            return Range.clip(odometryServoPos + trim, TURRET_PAN_MIN_POS, TURRET_PAN_MAX_POS);
+            double trim = Range.clip(TurretAim.TURRET_SIGN * d.ftcPose.bearing * VISION_TRIM_GAIN, -MAX_VISION_TRIM_PER_LOOP, MAX_VISION_TRIM_PER_LOOP);
+            return Range.clip(odometryServoPos + trim, TURRET_MIN_POS, TURRET_MAX_POS);
         }
         return odometryServoPos;
     }
@@ -296,24 +284,9 @@ public class RedTeleOp extends OpMode {
         return System.currentTimeMillis() - lastAngleChangeTime > TURRET_SETTLE_MS && flywheelAtSpeed;
     }
 
-    private double normalizeAngle(double deg) {
-        while (deg > 180) deg -= 360;
-        while (deg < -180) deg += 360;
-        return deg;
-    }
-
-    // Blends between the nearest measured distance/RPM/hood points in the table.
+    // Blends between the nearest measured distance/RPM points in the table.
     private void updateShooterForDistance(double distance) {
         double targetRPM = interpolate(shotTable, distance, 1);
-        double hoodPos = interpolate(shotTable, distance, 2);
-
-        if (manualMode) {
-            double lift = Math.abs(gamepad2.left_stick_y) > STICK_DEADZONE ? -gamepad2.left_stick_y : 0;
-            manualHoodPos = Range.clip(manualHoodPos + lift * MANUAL_HOOD_RATE, HOOD_MIN_POS, HOOD_MAX_POS);
-            hoodPos = manualHoodPos;
-        }
-        hood.setPosition(hoodPos);
-        lastHoodPos = hoodPos;
 
         double currentRPM = flywheel.getVelocity() / FLYWHEEL_TICKS_PER_REV * 60.0;
         double power = flywheelPID.calculate(targetRPM, targetRPM - currentRPM); // Pedro 3 PIDController takes (target, error)
@@ -321,7 +294,6 @@ public class RedTeleOp extends OpMode {
         flywheelAtSpeed = Math.abs(targetRPM - currentRPM) < FLYWHEEL_RPM_TOLERANCE;
 
         telemetry.addData("Target RPM", targetRPM);
-        telemetry.addData("Hood", hoodPos);
     }
 
     private double interpolate(double[][] table, double distance, int column) {
@@ -340,19 +312,19 @@ public class RedTeleOp extends OpMode {
     /* ---------------- INTAKE HELPERS ---------------- */
     private void runIntake() {
         IntakeMotor.setPower(INTAKE_MOTOR_POWER);
-        IntakeServo1.setPower(INTAKE_SERVO1_POWER);
-        IntakeServo2.setPower(INTAKE_SERVO2_POWER);
+        IntakeServo.setPower(INTAKE_SERVO_POWER);
     }
 
     private void stopIntake() {
         IntakeMotor.setPower(0);
-        IntakeServo1.setPower(0);
-        IntakeServo2.setPower(0);
+        IntakeServo.setPower(0);
     }
 
     @Override
     public void stop() {
         stopIntake();
+        if (feedingMotor != null) feedingMotor.setPower(0);
+        if (flywheel != null) flywheel.setPower(0);
         if (follower != null) { follower.stop(); follower.update(); } // zeroes the drive motors
         if (visionPortal != null) visionPortal.close();
     }
