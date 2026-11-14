@@ -1,5 +1,7 @@
 package org.firstinspires.ftc.teamcode;
 
+import static org.firstinspires.ftc.teamcode.RobotConfig.*;
+
 import com.pedropathing.follower.Follower;
 import com.pedropathing.math.Pose;
 import com.qualcomm.robotcore.eventloop.opmode.OpMode;
@@ -28,22 +30,13 @@ import org.firstinspires.ftc.teamcode.pedro.Constants;
  *
  * WIRING / HARDWARE CONFIG
  *   Drivetrain     : handled by Pedro (Constants.java) -> FrontLeft, FrontRight, BackLeft, BackRight
- *   Turret servo   : Expansion Hub servo port 1  -> config name "turretServo" <-- PLACEHOLDER name
- *   Ramp servo     : Expansion Hub servo port 0  -> config name "rampServo"   <-- PLACEHOLDER name
- *   Flywheel motor : config name "flywheel"                                    <-- PLACEHOLDER name
- *   Intake motor   : config name "intakemotor" (same name as IntakeTeleOp)
- *   The names are whatever you typed in the Driver Station "Configure Robot" screen
- *   for those ports. Change the three NAME lines below to match.
+ *   Turret servo   : Expansion Hub servo port 1  -> "turretServo" (standard Servo)
+ *   Ramp servo     : Expansion Hub servo port 0  -> "rampServo"   (standard Servo)
+ *   Flywheel, intake, feeding motors: "flywheel", "intakemotor", "feedingmotor"
+ *   All names and powers are in RobotConfig.java and match the 26season config (HARDWARE_CONFIG.md).
  */
 @TeleOp(name = "Turret Test", group = "Test")
 public class Turrettest extends OpMode {
-
-    /* ---------------- HARDWARE CONFIG NAMES (PLACEHOLDERS) ---------------- */
-    static final String TURRET_SERVO_NAME = "turretServo"; // Expansion Hub servo port 1 - TODO: confirm name
-    static final String RAMP_SERVO_NAME   = "rampServo";   // Expansion Hub servo port 0 - TODO: confirm name
-    static final String FLYWHEEL_NAME     = "flywheel";    // TODO: confirm name
-    static final String INTAKE_MOTOR_NAME = "intakemotor"; // same name IntakeTeleOp already uses
-    static final String FEEDING_MOTOR_NAME = "feedingmotor";
 
     /* ---------------- TURRET (shared with the autos and TeleOps: change them in TurretAim.java) ---------------- */
     static final double TURRET_CENTER    = TurretAim.TURRET_CENTER;    // servo position that points straight ahead (the starting direction)
@@ -66,14 +59,10 @@ public class Turrettest extends OpMode {
     // set RAMP_MIN_POS to 1.0 and change RAMP_MAX_POS to RAMP_MIN_POS - (RAMP_MAX_DEG / SERVO_RANGE_DEG).
     static final double RAMP_RATE       = 0.005; // how fast the stick moves the ramp per loop
 
-    /* ---------------- OTHER (PLACEHOLDERS) ---------------- */
-    static final double STICK_DEADZONE = 0.1;
-    static final double FLYWHEEL_POWER = -0.6;  // TODO: start low, raise slowly
-    static final double TURN_SCALE     = 0.6;
-    static final double FLYWHEEL_FULL_POWER = -1.0; // 100% power, same direction as FLYWHEEL_POWER
-    static final double FEED_POWER     = -1.0;  // feeding motor power while the trigger is held
+    /* ---------------- OTHER (stick deadzone, turn speed and motor powers are in RobotConfig.java) ---------------- */
+    static final double FLYWHEEL_POWER = FLYWHEEL_DIRECTION * 0.6;       // TODO: start low, raise slowly
+    static final double FLYWHEEL_FULL_POWER = FLYWHEEL_DIRECTION * 1.0;  // 100% power, same direction
     static final double TRIGGER_THRESHOLD = 0.9; // right trigger must be pushed (almost) ALL the way down
-    static final double INTAKE_POWER   = 1.0;   // same sign IntakeTeleOp uses; flip to 1.0 if it runs backwards
 
     /* ---------------- HARDWARE ---------------- */
     Follower follower;
@@ -186,7 +175,7 @@ public class Turrettest extends OpMode {
         // Let go and the feeding motor stops; the intake goes back to whatever the B toggle says.
         boolean feeding = gamepad2.right_trigger > TRIGGER_THRESHOLD;
         feedingMotor.setPower(feeding ? FEED_POWER : 0);
-        intakeMotor.setPower((intakeOn || feeding) ? INTAKE_POWER : 0);
+        intakeMotor.setPower((intakeOn || feeding) ? INTAKE_MOTOR_POWER : 0);
 
         /* -------- TELEMETRY -------- */
         telemetry.addData("Turret pos", "%.3f (about %.0f deg from start, limit +/-%.0f)", turretPos,

@@ -1,5 +1,6 @@
 package org.firstinspires.ftc.teamcode;
 
+import static org.firstinspires.ftc.teamcode.RobotConfig.*;
 import static com.pedropathing.api.Paths.line;
 
 import com.pedropathing.follower.Follower;
@@ -20,9 +21,9 @@ import org.firstinspires.ftc.teamcode.pedro.Constants;
 public class FarBlueAlliancePark extends OpMode {
 
     /* ---------------- START POSE ---------------- */
-    static final double START_X = 80;
-    static final double START_Y = 2;
-    static final double START_HEADING_DEG = 90;
+    static final double START_X = FAR_BLUE_START_X;
+    static final double START_Y = FAR_BLUE_START_Y;
+    static final double START_HEADING_DEG = FAR_BLUE_START_HEADING_DEG;
 
     /* ---------------- DELAY BEFORE MOVING (milliseconds) ---------------- */
     static final double START_DELAY_MS = 0;
@@ -92,6 +93,7 @@ public class FarBlueAlliancePark extends OpMode {
     @Override
     public void stop() {
         if (follower != null) {
+            saveAutoEndPose(follower.pose()); // TeleOp starts from here
             follower.stop();
             follower.update();
         }

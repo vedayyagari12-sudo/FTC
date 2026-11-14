@@ -1,5 +1,6 @@
 package org.firstinspires.ftc.teamcode;
 
+import static org.firstinspires.ftc.teamcode.RobotConfig.*;
 import static com.pedropathing.api.Paths.line;
 
 import com.pedropathing.follower.Follower;
@@ -13,16 +14,16 @@ import org.firstinspires.ftc.teamcode.pedro.Constants;
 /**
  * Far Red Dead Auto  -  drives to the parking zone and stops. No flywheel, no intake.
  * Same end point as the full auto for this side. No flywheel, no intake.
- * Place the robot at the start pose (64, 2) facing 90 degrees before INIT.
+ * Place the robot at the start pose before INIT: (64, 142) facing 270 degrees (FAR_RED_START_* in RobotConfig).
  * Edit the points below if the robot parks in the wrong spot.
  */
 @Autonomous(name = "Far Red Dead Auto", group = "Auto")
 public class FarRedAlliancePark extends OpMode {
 
     /* ---------------- START POSE ---------------- */
-    static final double START_X = 64;
-    static final double START_Y = 142;
-    static final double START_HEADING_DEG = 270;
+    static final double START_X = FAR_RED_START_X;
+    static final double START_Y = FAR_RED_START_Y;
+    static final double START_HEADING_DEG = FAR_RED_START_HEADING_DEG;
 
     /* ---------------- DELAY BEFORE MOVING (milliseconds) ---------------- */
     static final double START_DELAY_MS = 0;
@@ -92,6 +93,7 @@ public class FarRedAlliancePark extends OpMode {
     @Override
     public void stop() {
         if (follower != null) {
+            saveAutoEndPose(follower.pose()); // TeleOp starts from here
             follower.stop();
             follower.update();
         }

@@ -1,5 +1,7 @@
 package org.firstinspires.ftc.teamcode;
 
+import static org.firstinspires.ftc.teamcode.RobotConfig.*;
+
 import com.qualcomm.robotcore.eventloop.opmode.OpMode;
 import com.qualcomm.robotcore.eventloop.opmode.TeleOp;
 import com.qualcomm.robotcore.hardware.CRServo;
@@ -13,12 +15,7 @@ public class IntakeTeleOp extends OpMode {
     DcMotor IntakeMotor, FeedingMotor;
     CRServo IntakeServo;
 
-    /* ---------------- TUNING ---------------- */
-    // Flip the sign on any of these if a piece runs backwards.
-    final double INTAKE_MOTOR_POWER  = -1.0;
-    final double INTAKE_SERVO_POWER  = -1.0;
-    final double FEED_POWER          = -1.0;  // same as Turrettest and the autos
-    final double TURN_SCALE = 0.6;
+    /* Names, powers and TURN_SCALE are in RobotConfig.java. */
 
     /* ---------------- STATE ---------------- */
     boolean intakeOn = false;
@@ -27,14 +24,14 @@ public class IntakeTeleOp extends OpMode {
     /* ---------------- INIT ---------------- */
     @Override
     public void init() {
-        FrontLeftWheel  = hardwareMap.dcMotor.get("FrontLeft");
-        FrontRightWheel = hardwareMap.dcMotor.get("FrontRight");
-        BackLeftWheel   = hardwareMap.dcMotor.get("BackLeft");
-        BackRightWheel  = hardwareMap.dcMotor.get("BackRight");
+        FrontLeftWheel  = hardwareMap.dcMotor.get(FRONT_LEFT_NAME);
+        FrontRightWheel = hardwareMap.dcMotor.get(FRONT_RIGHT_NAME);
+        BackLeftWheel   = hardwareMap.dcMotor.get(BACK_LEFT_NAME);
+        BackRightWheel  = hardwareMap.dcMotor.get(BACK_RIGHT_NAME);
 
-        IntakeMotor  = hardwareMap.dcMotor.get("intakemotor");
-        IntakeServo  = hardwareMap.get(CRServo.class, "Intakeservo"); // capital I, see HARDWARE_CONFIG.md
-        FeedingMotor = hardwareMap.dcMotor.get("feedingmotor");
+        IntakeMotor  = hardwareMap.dcMotor.get(INTAKE_MOTOR_NAME);
+        IntakeServo  = hardwareMap.get(CRServo.class, INTAKE_SERVO_NAME);
+        FeedingMotor = hardwareMap.dcMotor.get(FEEDING_MOTOR_NAME);
 
         BackLeftWheel.setDirection(DcMotor.Direction.REVERSE);
         FrontLeftWheel.setDirection(DcMotor.Direction.REVERSE);

@@ -1,5 +1,7 @@
 package org.firstinspires.ftc.teamcode;
 
+import static org.firstinspires.ftc.teamcode.RobotConfig.*;
+
 import com.qualcomm.robotcore.eventloop.opmode.OpMode;
 import com.qualcomm.robotcore.eventloop.opmode.TeleOp;
 import com.qualcomm.robotcore.hardware.CRServo;
@@ -15,19 +17,7 @@ import org.firstinspires.ftc.teamcode.pedro.Constants;
 @TeleOp(name = "Red TeleOp")
 public class RedTeleOp extends OpMode {
 
-    /* ---------------- HARDWARE MAP NAMES (update to match your config) ---------------- */
-    // NOTE: the four drive-motor names below are now used by pedro/Constants.java (drivetrainConfig).
-    // Pedro 3 owns the drive motors; if you rename them in the robot config, change them there too.
-    final String FRONT_LEFT_NAME    = "FrontLeft";
-    final String FRONT_RIGHT_NAME   = "FrontRight";
-    final String BACK_LEFT_NAME     = "BackLeft";
-    final String BACK_RIGHT_NAME    = "BackRight";
-    final String INTAKE_MOTOR_NAME  = "intakemotor";
-    // All names below match the 26season config (see HARDWARE_CONFIG.md).
-    final String INTAKE_SERVO_NAME  = "Intakeservo";  // CR servo, Control Hub servo 0 (capital I)
-    final String TURRET_SERVO_NAME  = "turretServo";  // the robot has ONE turret servo, Expansion Hub servo 1
-    final String FLYWHEEL_NAME      = "flywheel";
-    final String FEEDING_MOTOR_NAME = "feedingmotor"; // pushes balls into the flywheel
+    /* Hardware names, powers, flywheel numbers, shot table and start pose are in RobotConfig.java. */
     // No hood servo in the config. rampServo (Expansion Hub servo 0) is probably the hood, but its safe
     // positions are not measured yet (see Turrettest), so this TeleOp does not drive it.
 
@@ -40,12 +30,6 @@ public class RedTeleOp extends OpMode {
     DcMotor feedingMotor;
     Follower follower;
     PIDController flywheelPID; // TODO: swap in your actual PID class if the name/signature differs
-
-    /* ---------------- DRIVE / INTAKE TUNING ---------------- */
-    final double INTAKE_MOTOR_POWER  = -1.0;
-    final double INTAKE_SERVO_POWER  = -1.0; // same sign as the autos and IntakeTeleOp; flip if it pushes balls out
-    final double FEED_POWER          = -1.0; // same as Turrettest and the autos
-    final double TURN_SCALE = 0.6;
 
     /* ---------------- HIVE CELL CONFIG ---------------- */
     // Which alliance HIVE to aim at. BlueTeleOp extends this class and returns TurretAim.BLUE.
@@ -66,17 +50,6 @@ public class RedTeleOp extends OpMode {
 
     /* ---------------- MANUAL MODE CONFIG ---------------- */
     final double MANUAL_TURRET_RATE = 0.01;
-    final double STICK_DEADZONE = 0.1;
-
-    /* ---------------- SHOOTER CONFIG ---------------- */
-    // {distance in, RPM, hood pos} - hood pos is not used until the ramp is wired in. PLACEHOLDER rows, replace with tested values.
-    final double[][] shotTable = {
-        {24, 2400, 0.30},
-        {60, 2900, 0.45},
-        {96, 3400, 0.60},
-    };
-    final double FLYWHEEL_RPM_TOLERANCE = 100;
-    final double FLYWHEEL_TICKS_PER_REV = 28.0; // TODO: set to your actual motor's ticks/rev
 
     /* ---------------- STATE ---------------- */
     boolean intakeOn = false;
@@ -105,16 +78,24 @@ public class RedTeleOp extends OpMode {
 
         turretServo  = hardwareMap.get(Servo.class, TURRET_SERVO_NAME);
         flywheel     = hardwareMap.get(DcMotorEx.class, FLYWHEEL_NAME);
-        // The flywheel shoots with NEGATIVE power (autos, Turrettest); reverse it so the RPM math here stays positive.
-        flywheel.setDirection(DcMotor.Direction.REVERSE);
+        // The autos spin the flywheel with FLYWHEEL_DIRECTION * speed; reversing the motor here gives the same
+        // direction with positive power, so the RPM math below stays positive.
+        flywheel.setDirection(FLYWHEEL_DIRECTION < 0 ? DcMotor.Direction.REVERSE : DcMotor.Direction.FORWARD);
         feedingMotor = hardwareMap.dcMotor.get(FEEDING_MOTOR_NAME);
         feedingMotor.setMode(DcMotor.RunMode.RUN_WITHOUT_ENCODER);
         feedingMotor.setZeroPowerBehavior(DcMotor.ZeroPowerBehavior.BRAKE);
         feedingMotor.setPower(0);
-        flywheelPID = new PIDController(0.001, 0, 0); // TODO: your tuned gains
+        flywheelPID = new PIDController(FLYWHEEL_P, FLYWHEEL_I, FLYWHEEL_D);
 
         follower = Constants.create(hardwareMap); // Pedro 3
-        follower.setPose(new Pose(72, 12, Math.toRadians(90))); // TODO: match real match start
+        // Start where the auto ended (if one just ran), otherwise at TELEOP_START_*. Clear it so a second
+        // TeleOp run without an auto doesn't reuse an old pose.
+        boolean fromAuto = USE_AUTO_END_POSE && autoEndPose != null;
+        Pose start = fromAuto ? autoEndPose : new Pose(TELEOP_START_X, TELEOP_START_Y, Math.toRadians(TELEOP_START_HEADING_DEG));
+        autoEndPose = null;
+        follower.setPose(start);
+        telemetry.addData("Start pose", "%s: x %.1f  y %.1f  heading %.0f deg", fromAuto ? "from auto" : "default start",
+                start.x(), start.y(), Math.toDegrees(start.heading()));
 
         telemetry.addLine((alliance() == TurretAim.RED ? "Red" : "Blue") + " TeleOp initialized. GP2: B intake, LB auto/manual, D-pad up/down/left force far/audience/auto cell, RT fire.");
         telemetry.update();
@@ -211,7 +192,7 @@ public class RedTeleOp extends OpMode {
 
     // Blends between the nearest measured distance/RPM points in the table.
     private void updateShooterForDistance(double distance) {
-        double targetRPM = interpolate(shotTable, distance, 1);
+        double targetRPM = interpolate(SHOT_TABLE, distance, 1);
 
         double currentRPM = flywheel.getVelocity() / FLYWHEEL_TICKS_PER_REV * 60.0;
         double power = flywheelPID.calculate(targetRPM, targetRPM - currentRPM); // Pedro 3 PIDController takes (target, error)

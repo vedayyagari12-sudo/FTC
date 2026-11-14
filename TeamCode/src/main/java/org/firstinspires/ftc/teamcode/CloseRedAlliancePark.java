@@ -1,5 +1,6 @@
 package org.firstinspires.ftc.teamcode;
 
+import static org.firstinspires.ftc.teamcode.RobotConfig.*;
 import static com.pedropathing.api.Paths.curve;
 import static com.pedropathing.api.Paths.line;
 
@@ -14,16 +15,16 @@ import org.firstinspires.ftc.teamcode.pedro.Constants;
 /**
  * Close Red Dead Auto  -  drives to the parking zone and stops. No flywheel, no intake.
  * Same end point as the full auto for this side. No flywheel, no intake.
- * Place the robot at the start pose (61, 136) facing -90 degrees before INIT.
+ * Place the robot at the start pose before INIT: (61, 8) facing 90 degrees (CLOSE_RED_START_* in RobotConfig).
  * Edit the points below if the robot parks in the wrong spot.
  */
 @Autonomous(name = "Close Red Dead Auto", group = "Auto")
 public class CloseRedAlliancePark extends OpMode {
 
     /* ---------------- START POSE ---------------- */
-    static final double START_X = 61;
-    static final double START_Y = 8;
-    static final double START_HEADING_DEG = 90;
+    static final double START_X = CLOSE_RED_START_X;
+    static final double START_Y = CLOSE_RED_START_Y;
+    static final double START_HEADING_DEG = CLOSE_RED_START_HEADING_DEG;
 
     /* ---------------- DELAY BEFORE MOVING (milliseconds) ---------------- */
     static final double START_DELAY_MS = 0;
@@ -97,6 +98,7 @@ public class CloseRedAlliancePark extends OpMode {
     @Override
     public void stop() {
         if (follower != null) {
+            saveAutoEndPose(follower.pose()); // TeleOp starts from here
             follower.stop();
             follower.update();
         }
