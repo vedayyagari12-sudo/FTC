@@ -117,7 +117,7 @@ A bench test with no automation. Gamepad 1 drives. Gamepad 2: right stick X turn
 
 1. **Which CELL.** The robot aims at the CELL on the half of the field it stands on: `y < 72` is the audience CELL, otherwise the far CELL. The target is on the alliance's own HIVE: `x = 72 - 12.75` for `RED`, `72 + 12.75` for `BLUE`.
 2. **Turret pivot.** The pose is the robot center; the turret pivot is moved by `PIVOT_FORWARD_IN` and `PIVOT_LEFT_IN` (both 0 until measured), rotated by the heading.
-3. **Angle.** Field bearing from the pivot to the CELL, minus the robot heading, wrapped to -180 to 180. That is how far the turret must turn from straight ahead (positive is left). It is clamped to `TURRET_LIMIT_DEG` (150) and `outOfRange` says if it had to be.
+3. **Angle.** Field bearing from the pivot to the CELL, minus the robot heading, wrapped to -180 to 180. That is how far the turret must turn from straight ahead (positive is left). It is clamped to `TURRET_LIMIT_DEG` (135, so 270 degrees of turning in total) and `outOfRange` says if it had to be.
 4. **Servo value.** `TURRET_CENTER + TURRET_SIGN * angle / TURRET_RANGE_DEG`, for `turretServo.setPosition()`.
 5. **Distance.** Flat distance from the pivot to the opening center, for the shot table later.
 
@@ -157,7 +157,7 @@ These must match the Driver Station "Configure Robot" screen exactly. The robot'
 These were already in the code before the turret aiming was added. They decide whether the turret moves the right way and the right amount.
 
 1. **One turret servo or two? Settled: one.** The `26season` config has a single `turretServo` (Expansion Hub servo 1), which is what `Turrettest` and the autos use. `RedTeleOp` now uses it too.
-2. **Turret travel.** `Turrettest` assumes 300 degrees of turret per full servo travel (plus or minus 150). `TurretAim.TURRET_RANGE_DEG` follows it, and the autos and `RedTeleOp` both use `TurretAim` now. Measure the real travel with `Turrettest` and set the constant once.
+2. **Turret travel.** The turret may turn 135 degrees to each side (270 in total), and the servo is assumed to give 300 degrees per full travel. Both numbers live only in `TurretAim` (`TURRET_LIMIT_DEG`, `TURRET_RANGE_DEG`); the autos, `RedTeleOp`, `BlueTeleOp` and `Turrettest` all read them from there. Measure the real travel with `Turrettest` and set the constant once.
 3. **Direction.** `Turrettest` calls a higher servo position "turret right" (clockwise). The old `RedTeleOp` math made a left (counter-clockwise) turn a higher servo position, and `TurretAim.TURRET_SIGN = 1.0` keeps that. If the turret swings the wrong way, set it to `-1.0`: that fixes the autos and the TeleOp (including its vision trim) together.
 4. **TeleOp HIVE coordinates. Settled.** `RedTeleOp` used to aim at placeholder points (100, 48) and (100, 73.5). It now calls `TurretAim.aim(..., targetFar)`, so it uses the same red HIVE cells (x = 59.25, y = 55.5 and 88.5) and half line (72) as the autos. The D-pad cell override still works: "back" means the far CELL.
 5. **Turret pivot and shooter height.** `PIVOT_FORWARD_IN`, `PIVOT_LEFT_IN` and `SHOOTER_Z_IN` in `TurretAim` are placeholders (0, 0, 12). Measure them on the robot.

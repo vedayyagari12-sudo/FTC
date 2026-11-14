@@ -24,10 +24,10 @@ public class TurretAim {
     static final double PIVOT_LEFT_IN    = 0;  // TODO: turret pivot this far LEFT of the robot center (negative = right)
     static final double SHOOTER_Z_IN     = 12; // TODO: height the ball leaves the shooter
 
-    /* ---------------- TURRET SERVO (same numbers as Turrettest) ---------------- */
+    /* ---------------- TURRET SERVO (standard positional Servo, not continuous; Turrettest uses these too) ---------------- */
     static final double TURRET_CENTER    = 0.5;   // servo position that points the way the robot faces
-    static final double TURRET_RANGE_DEG = 300.0; // TODO confirm: degrees of turret per full servo travel (Turrettest says 300; RedTeleOp assumes 180)
-    static final double TURRET_LIMIT_DEG = 150.0; // turret can go this far to each side
+    static final double TURRET_RANGE_DEG = 300.0; // TODO confirm: degrees of turret per full servo travel (goBILDA 2000 series = 300)
+    static final double TURRET_LIMIT_DEG = 135.0; // turret can go this far to each side: 270 degrees of turning in total
     // +1: a LEFT (counter-clockwise) turn = higher servo position (what RedTeleOp assumes).
     // Turrettest's comment suggests the opposite, so test on the robot and flip to -1.0 if the turret turns the wrong way.
     static final double TURRET_SIGN      = 1.0;
@@ -82,7 +82,7 @@ public class TurretAim {
         r = aim(57, 113, Math.toRadians(270), RED);                   // Far Red shooting spot, robot already faces the HIVE
         check(r.targetFar && !r.outOfRange, "far red in range");
         r = aim(60, 20, Math.toRadians(-90), RED);                    // facing away from the HIVE: needs about 180, so it clamps
-        check(r.outOfRange && near(Math.abs(r.turretDeg), 150, 1e-9), "clamp");
+        check(r.outOfRange && near(Math.abs(r.turretDeg), 135, 1e-9), "clamp");
         r = aim(61, 34, Math.toRadians(90), RED, true);               // forced far CELL from the lower half
         check(r.targetFar && near(r.targetY, 88.5, 1e-9), "forced target");
         check(near(wrap180(190), -170, 1e-9) && near(wrap180(-180), -180, 1e-9), "wrap");

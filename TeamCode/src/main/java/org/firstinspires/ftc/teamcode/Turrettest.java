@@ -45,13 +45,13 @@ public class Turrettest extends OpMode {
     static final String INTAKE_MOTOR_NAME = "intakemotor"; // same name IntakeTeleOp already uses
     static final String FEEDING_MOTOR_NAME = "feedingmotor";
 
-    /* ---------------- TURRET (PLACEHOLDERS) ---------------- */
-    static final double TURRET_CENTER  = 0.5;   // TODO: servo position that points straight ahead (the starting direction)
-    static final double TURRET_LIMIT_DEG = 150.0;       // turret may move this far left AND right of the starting direction
-    static final double TURRET_RANGE_DEG = 300.0;       // TODO: full travel of the TURRET servo (goBILDA 2000 series = 300, REV smart servo = 270, standard = 180). If the turret is geared, use the turret degrees per full servo travel.
-    static final double TURRET_LIMIT_POS = TURRET_LIMIT_DEG / TURRET_RANGE_DEG;                      // servo distance for 150 degrees
-    static final double TURRET_MIN_POS = Math.max(0.0, TURRET_CENTER - TURRET_LIMIT_POS);            // 150 degrees to one side
-    static final double TURRET_MAX_POS = Math.min(1.0, TURRET_CENTER + TURRET_LIMIT_POS);            // 150 degrees to the other side
+    /* ---------------- TURRET (shared with the autos and TeleOps: change them in TurretAim.java) ---------------- */
+    static final double TURRET_CENTER    = TurretAim.TURRET_CENTER;    // servo position that points straight ahead (the starting direction)
+    static final double TURRET_LIMIT_DEG = TurretAim.TURRET_LIMIT_DEG; // 135: turret may move this far left AND right, 270 degrees in total
+    static final double TURRET_RANGE_DEG = TurretAim.TURRET_RANGE_DEG; // full travel of the turret servo (goBILDA 2000 series = 300, REV smart servo = 270, standard = 180). If the turret is geared, use the turret degrees per full servo travel.
+    static final double TURRET_LIMIT_POS = TURRET_LIMIT_DEG / TURRET_RANGE_DEG;                      // servo distance for 135 degrees
+    static final double TURRET_MIN_POS = Math.max(0.0, TURRET_CENTER - TURRET_LIMIT_POS);            // 135 degrees to one side
+    static final double TURRET_MAX_POS = Math.min(1.0, TURRET_CENTER + TURRET_LIMIT_POS);            // 135 degrees to the other side
     static final double TURRET_RATE    = 0.005; // how fast the stick moves the turret per loop (was 0.01, now 50% speed). Lower = slower.
     static final double TURRET_DEADZONE = 0.1;  // slight deadzone: ignore stick movement below this. Raise if it twitches at rest.
     static final double TURRET_DIRECTION = 1.0; // 1.0 = stick right turns turret right. If it goes the wrong way, set to -1.0
