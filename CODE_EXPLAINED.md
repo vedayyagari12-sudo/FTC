@@ -24,7 +24,8 @@ What every part of this repo does, and how the turret aiming fits into the autos
 | `.../BlueTeleOp.java` | The same TeleOp for the blue alliance: extends `RedTeleOp` and only changes which HIVE the turret aims at. |
 | `.../IntakeTeleOp.java` | Older, simpler TeleOp: drives the wheels directly (no Pedro), intake toggle and a ram/push mechanism. |
 | `.../Turrettest.java` | Bench-test TeleOp: drive, move the turret with a stick, flywheel, intake and feeding motor. Nothing automatic. |
-| `.../TurretAim.java` | New. Pure math that turns the robot pose into a turret angle and servo position. Shared by the four full autos. |
+| `.../RobotConfig.java` | Every shared setting in one place: start positions and headings for each auto spot and for TeleOp, hardware names, motor and servo powers, flywheel numbers, shot table, PID gains, turn speed and stick deadzone. Also carries the auto's end pose into TeleOp. |
+| `.../TurretAim.java` | Pure math that turns the robot pose into a turret angle and servo position, plus the turret and field settings (servo center, range, 270 degree limit, direction, HIVE positions). Shared by the full autos and the TeleOps. |
 | `.../pedro/Constants.java` | Pedro Pathing 3 configuration for this robot (drive motors, Pinpoint odometry, tuned follower values). |
 | `.../pedro/Tuning.java`, `.../pedro/procedures/*` | The official Pedro AutoTune procedures. Only used when tuning, not during a match. |
 | `PEDRO_TUNING_CHECKLIST.md` | Step-by-step list for tuning the drivetrain with AutoTune. |
@@ -49,6 +50,20 @@ The HIVE (from the BIOBUZZ Competition Manual TU06, section 9):
 - One HIVE structure in the middle of the field, pivot at (72, 72). The red HIVE is centered at `x = 59.25` and the blue HIVE at `x = 84.75` (25.5 inches apart).
 - Each HIVE is a seesaw with a CELL at the audience end and one at the far end. Only the raised CELL scores.
 - Opening center of a CELL: 16.5 inches from `y = 72` (so `y = 55.5` audience, `y = 88.5` far) and 58.3 inches high. These two numbers are worked out from the manual's drawings, not published, so measure them on a real field.
+
+## 2b. Where to change settings
+
+There are three settings files. Every OpMode reads from them, so change a number once and every auto and TeleOp follows.
+
+| File | What is in it |
+|---|---|
+| `RobotConfig.java` | Start position and heading for each auto spot (`CLOSE_RED_START_X/Y/HEADING_DEG` and so on, shared by the full and park auto for that spot), the TeleOp start (`TELEOP_START_*`), hardware names, intake/servo/feed powers, flywheel direction, ticks per rev, auto RPM, rev-up wait, PID gains, shot table, turn speed, stick deadzone. |
+| `TurretAim.java` | Turret servo center, range, limit (135 each side, 270 total), direction sign, turret pivot offset, shooter height, HIVE and CELL positions. |
+| `pedro/Constants.java` | Drive motor names and directions, Pinpoint pod offsets, tuned follower values (AutoTune output is pasted here). |
+
+Path points, per-path waits and small moves stay in each auto, because they belong to that path.
+
+**Auto to TeleOp pose.** Every auto saves where it ended in its `stop()` (`RobotConfig.autoEndPose`). When `USE_AUTO_END_POSE` is true, TeleOp starts from that pose, so the odometry and turret aim carry over. If no auto ran first (practice), TeleOp starts at `TELEOP_START_*`. TeleOp telemetry shows "Start pose: from auto" or "default start", and the saved pose is cleared once read, so a second TeleOp run without an auto uses the default.
 
 ## 3. Pedro setup (`pedro/`)
 
@@ -161,5 +176,4 @@ These were already in the code before the turret aiming was added. They decide w
 3. **Direction.** `Turrettest` calls a higher servo position "turret right" (clockwise). The old `RedTeleOp` math made a left (counter-clockwise) turn a higher servo position, and `TurretAim.TURRET_SIGN = 1.0` keeps that. If the turret swings the wrong way, set it to `-1.0`: that fixes the autos and the TeleOp (including its vision trim) together.
 4. **TeleOp HIVE coordinates. Settled.** `RedTeleOp` used to aim at placeholder points (100, 48) and (100, 73.5). It now calls `TurretAim.aim(..., targetFar)`, so it uses the same red HIVE cells (x = 59.25, y = 55.5 and 88.5) and half line (72) as the autos. The D-pad cell override still works: "back" means the far CELL.
 5. **Turret pivot and shooter height.** `PIVOT_FORWARD_IN`, `PIVOT_LEFT_IN` and `SHOOTER_Z_IN` in `TurretAim` are placeholders (0, 0, 12). Measure them on the robot.
-6. **Park auto comments.** The header comments of `CloseRedAlliancePark` (start at 61, 136 facing -90) and `FarRedAlliancePark` (start at 64, 2 facing 90) do not match their constants (61, 8 facing 90, and 64, 142 facing 270). The constants are what runs.
-7. **Not compiled here.** The turret changes were checked with a Java self-check of the math only. Build the project in Android Studio before taking it to a match.
+6. **Built, not yet run on the robot.** The project builds with Gradle (`./gradlew :TeamCode:assembleDebug`, JDK 17) and `TurretAim`'s self-check passes (`java TurretAim.java`). Directions (intake, intake servo, flywheel, turret) still need checking on the robot. All intake directions now come from `RobotConfig.INTAKE_MOTOR_POWER` (+1.0, from `Turrettest`); the TeleOps used -1.0 before, so if the intake runs backwards, flip that one number.

@@ -45,7 +45,7 @@ The robot configuration that is active on the Driver Station, copied from the "A
 | `Webcam` | nothing (no camera is used) |
 | `imu` | nothing yet (heading comes from the Pinpoint) |
 
-Every OpMode in `TeamCode` now asks only for names in this config. The older names (`intakeservo`, `intakeservo2`, `turretServo1`, `turretServo2`, `hoodServo`, `shootmotor`, `intakeservo3`, `Webcam 1`) are gone: the robot has one intake servo, one turret servo, no hood servo (the ramp is the likely replacement) and a feeding motor where the ram used to be.
+Every OpMode in `TeamCode` now asks only for names in this config, and reads them from `RobotConfig.java` (the drive motors and `pinpoint` are also named in `pedro/Constants.java`). The older names (`intakeservo`, `intakeservo2`, `turretServo1`, `turretServo2`, `hoodServo`, `shootmotor`, `intakeservo3`, `Webcam 1`) are gone: the robot has one intake servo, one turret servo, no hood servo (the ramp is the likely replacement) and a feeding motor where the ram used to be.
 
 ## Photos
 

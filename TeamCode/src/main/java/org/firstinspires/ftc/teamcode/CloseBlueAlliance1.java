@@ -1,5 +1,6 @@
 package org.firstinspires.ftc.teamcode;
 
+import static org.firstinspires.ftc.teamcode.RobotConfig.*;
 import static com.pedropathing.api.Paths.line;
 
 import com.pedropathing.follower.Follower;
@@ -41,9 +42,9 @@ import org.firstinspires.ftc.teamcode.pedro.Constants;
 public class CloseBlueAlliance1 extends OpMode {
 
     /* ---------------- START POSE ---------------- */
-    static final double START_X = 83;
-    static final double START_Y = 136;
-    static final double START_HEADING_DEG = 270;  // matches Path 1 start heading, so no turn at the beginning
+    static final double START_X = CLOSE_BLUE_START_X;
+    static final double START_Y = CLOSE_BLUE_START_Y;
+    static final double START_HEADING_DEG = CLOSE_BLUE_START_HEADING_DEG;  // matches Path 1 start heading, so no turn at the beginning
 
     /* ---------------- PATH POINTS ---------------- */
     // Path 1
@@ -62,29 +63,13 @@ public class CloseBlueAlliance1 extends OpMode {
     static final double INTAKE_MS   = 3000;   // intake runs 3 s after Path 2 (at the flower)
     static final double WAIT_AFTER_PATH3_MS = 200;
 
-    /* ---------------- FLYWHEEL REV-UP WAIT (before Path 1 starts) ---------------- */
-    static final double REV_MIN_MS = 800;       // always wait at least this long
-    static final double REV_TIMEOUT_MS = 3000;  // never wait longer than this
-    static final double REV_TOLERANCE_RPM = 100; // "at speed" = within this of 2200
-
     /* ---------------- SMALL MOVES (inches, robot's point of view) ---------------- */
     static final double FLOWER_LEFT_IN = 2;     // while intaking
     static final double FLOWER_FORWARD_IN = 2;  // while intaking
     static final double BACKUP_IN = 3;          // at the very end
 
-    /* ---------------- MECHANISMS (same names/values as TurretTest + RedTeleOp) ---------------- */
-    static final String TURRET_SERVO_NAME = "turretServo"; // Expansion Hub 2, servo port 1 (see HARDWARE_CONFIG.md)
+    /* ---------------- MECHANISMS (names, powers and flywheel numbers are in RobotConfig.java) ---------------- */
     static final int ALLIANCE = TurretAim.BLUE;           // which HIVE the turret aims at
-    static final String FLYWHEEL_NAME = "flywheel";
-    static final String INTAKE_NAME   = "intakemotor";
-    static final double FLYWHEEL_RPM  = 2200;
-    static final double FLYWHEEL_TICKS_PER_REV = 28.0; // from RedTeleOp - TODO confirm for your motor
-    static final double FLYWHEEL_DIRECTION = -1.0;     // flywheel spins with NEGATIVE power (-0.6 in TurretTest)
-    static final String FEEDING_NAME  = "feedingmotor";
-    static final double FEED_POWER    = -1.0;           // feeding motor power while shooting
-    static final double INTAKE_POWER = 1.0;            // same as TurretTest
-    static final String INTAKE_SERVO_NAME = "Intakeservo"; // CR servo, Control Hub servo port 0 (capital I: names are case-sensitive)
-    static final double INTAKE_SERVO_POWER = -1.0;        // same sign as IntakeTeleOp (servo-fix PR); flip if it pushes balls out
 
     private DcMotorEx flywheel;
     private DcMotor intakeMotor;
@@ -115,13 +100,13 @@ public class CloseBlueAlliance1 extends OpMode {
         flywheel.setMode(DcMotor.RunMode.RUN_USING_ENCODER); // uses the attached encoder for speed control
         flywheel.setZeroPowerBehavior(DcMotor.ZeroPowerBehavior.FLOAT);
         flywheel.setPower(0);
-        intakeMotor = hardwareMap.dcMotor.get(INTAKE_NAME);
+        intakeMotor = hardwareMap.dcMotor.get(INTAKE_MOTOR_NAME);
         intakeMotor.setMode(DcMotor.RunMode.RUN_WITHOUT_ENCODER);
         intakeMotor.setZeroPowerBehavior(DcMotor.ZeroPowerBehavior.BRAKE);
         intakeMotor.setPower(0);
         intakeServo = hardwareMap.get(CRServo.class, INTAKE_SERVO_NAME);
         intakeServo.setPower(0);
-        feedingMotor = hardwareMap.dcMotor.get(FEEDING_NAME);
+        feedingMotor = hardwareMap.dcMotor.get(FEEDING_MOTOR_NAME);
         feedingMotor.setMode(DcMotor.RunMode.RUN_WITHOUT_ENCODER);
         feedingMotor.setZeroPowerBehavior(DcMotor.ZeroPowerBehavior.BRAKE);
         feedingMotor.setPower(0);
@@ -163,7 +148,7 @@ public class CloseBlueAlliance1 extends OpMode {
         switch (state) {
             case REV_WAIT: {
                 double t = waitTimer.milliseconds();
-                boolean atSpeed = Math.abs(flywheelRpm() - FLYWHEEL_RPM) < REV_TOLERANCE_RPM;
+                boolean atSpeed = Math.abs(flywheelRpm() - AUTO_FLYWHEEL_RPM) < FLYWHEEL_RPM_TOLERANCE;
                 if ((atSpeed && t >= REV_MIN_MS) || t >= REV_TIMEOUT_MS) {
                     follower.follow(paths[0]);
                     state = State.DRIVING;
@@ -180,7 +165,7 @@ public class CloseBlueAlliance1 extends OpMode {
                         state = State.WAITING;
                     } else if (step == 1) {
                         // At the flower: intake on, move left then forward while intaking.
-                        intakeMotor.setPower(INTAKE_POWER);
+                        intakeMotor.setPower(INTAKE_MOTOR_POWER);
                         intakeServo.setPower(INTAKE_SERVO_POWER);
                         intakeTimer.reset();
                         followRobotRelative(0, FLOWER_LEFT_IN, P2_END_DEG); // forward 0, left 2
@@ -243,7 +228,7 @@ public class CloseBlueAlliance1 extends OpMode {
         telemetry.addData("State", state);
         telemetry.addData("Turret", "%.1f deg, servo %.3f, %.1f in to the %s CELL%s", aim.turretDeg, aim.servoPos, aim.distanceIn,
                 aim.targetFar ? "far" : "audience", aim.outOfRange ? " (OUT OF RANGE)" : "");
-        telemetry.addData("Flywheel RPM", "%.0f (target %.0f)", flywheelRpm(), FLYWHEEL_RPM);
+        telemetry.addData("Flywheel RPM", "%.0f (target %.0f)", flywheelRpm(), AUTO_FLYWHEEL_RPM);
         telemetry.addData("Pose", "x %.1f  y %.1f  heading %.0f deg", pose.x(), pose.y(), Math.toDegrees(pose.heading()));
         telemetry.update();
     }
@@ -274,12 +259,13 @@ public class CloseBlueAlliance1 extends OpMode {
     }
 
     private void startFlywheel() {
-        flywheel.setVelocity(FLYWHEEL_DIRECTION * FLYWHEEL_RPM / 60.0 * FLYWHEEL_TICKS_PER_REV);
+        flywheel.setVelocity(FLYWHEEL_DIRECTION * AUTO_FLYWHEEL_RPM / 60.0 * FLYWHEEL_TICKS_PER_REV);
     }
 
     @Override
     public void stop() {
         if (follower != null) {
+            saveAutoEndPose(follower.pose()); // TeleOp starts from here
             follower.stop();
             follower.update();
         }
