@@ -25,8 +25,8 @@ import org.firstinspires.ftc.teamcode.pedro.Constants;
  *   Gamepad 2 X            : recenter turret and drop ramp to its lowest position
  *   Gamepad 2 B            : intake motor ON / OFF (toggle)
  *   Gamepad 2 RIGHT TRIGGER: hold ALL the way down = feeding motor + intake on; release = feeding stops
- *   Gamepad 2 D-pad up     : set flywheel power to 100% (press A to turn it on/off)
- *   Gamepad 2 D-pad down   : set flywheel power back to FLYWHEEL_POWER (-0.6)
+ *   Gamepad 2 D-pad up     : next higher flywheel speed (0, 20, 30, 40, 50, 100%). A still turns it on/off.
+ *   Gamepad 2 D-pad down   : next lower flywheel speed
  *
  * WIRING / HARDWARE CONFIG
  *   Drivetrain     : handled by Pedro (Constants.java) -> FrontLeft, FrontRight, BackLeft, BackRight
@@ -60,8 +60,8 @@ public class Turrettest extends OpMode {
     static final double RAMP_RATE       = 0.005; // how fast the stick moves the ramp per loop
 
     /* ---------------- OTHER (stick deadzone, turn speed and motor powers are in RobotConfig.java) ---------------- */
-    static final double FLYWHEEL_POWER = FLYWHEEL_DIRECTION * 0.6;       // TODO: start low, raise slowly
-    static final double FLYWHEEL_FULL_POWER = FLYWHEEL_DIRECTION * 1.0;  // 100% power, same direction
+    // D-pad up/down steps through these. Starts at 50%.
+    static final double[] FLYWHEEL_PERCENTS = {0.0, 0.20, 0.30, 0.40, 0.50, 1.0};
     static final double TRIGGER_THRESHOLD = 0.9; // right trigger must be pushed (almost) ALL the way down
 
     /* ---------------- HARDWARE ---------------- */
@@ -76,8 +76,10 @@ public class Turrettest extends OpMode {
     double turretPos = TURRET_CENTER;
     double rampPos = RAMP_MIN_POS;
     boolean flywheelOn = false;
-    double flywheelPower = FLYWHEEL_POWER; // current flywheel power, D-pad up = 100%, D-pad down = back to FLYWHEEL_POWER
+    int flywheelIndex = 4; // 50%
     boolean flywheelToggleReady = true;
+    boolean dpadUpReady = true;
+    boolean dpadDownReady = true;
     boolean intakeOn = false;
     boolean intakeToggleReady = true;
 
@@ -160,8 +162,17 @@ public class Turrettest extends OpMode {
             flywheelOn = !flywheelOn;
             flywheelToggleReady = false;
         }
-        if (gamepad2.dpad_up) flywheelPower = FLYWHEEL_FULL_POWER; // 100%
-        if (gamepad2.dpad_down) flywheelPower = FLYWHEEL_POWER;    // back to normal (-0.6)
+        if (!gamepad2.dpad_up) dpadUpReady = true;
+        if (gamepad2.dpad_up && dpadUpReady) {
+            flywheelIndex = Math.min(flywheelIndex + 1, FLYWHEEL_PERCENTS.length - 1);
+            dpadUpReady = false;
+        }
+        if (!gamepad2.dpad_down) dpadDownReady = true;
+        if (gamepad2.dpad_down && dpadDownReady) {
+            flywheelIndex = Math.max(flywheelIndex - 1, 0);
+            dpadDownReady = false;
+        }
+        double flywheelPower = FLYWHEEL_DIRECTION * FLYWHEEL_PERCENTS[flywheelIndex];
         flywheel.setPower(flywheelOn ? flywheelPower : 0);
 
         /* -------- INTAKE (gamepad2 B toggles) -------- */
