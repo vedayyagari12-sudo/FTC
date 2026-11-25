@@ -64,6 +64,9 @@ public class RobotConfig {
     public static final double REV_TIMEOUT_MS = 3000;
     // TeleOp flywheel speed controller (Pedro PIDController) - TODO: tune.
     public static final double FLYWHEEL_P = 0.001, FLYWHEEL_I = 0, FLYWHEEL_D = 0;
+    // FlywheelPIDF (Turret Test) also uses F: power per target RPM, about 1 / max RPM. Max RPM sets what 100% means.
+    public static final double FLYWHEEL_F = 0.00017;  // TODO: tune
+    public static final double FLYWHEEL_MAX_RPM = 6000; // TODO confirm: free speed of the flywheel motor (6000 for a bare goBILDA 5203)
     // TeleOp shot table: {distance from turret to CELL in inches, flywheel RPM, ramp/hood position (unused for now)}.
     // PLACEHOLDER rows - replace with tested values. Distances in between are blended.
     public static final double[][] SHOT_TABLE = {
