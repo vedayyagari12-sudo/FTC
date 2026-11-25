@@ -73,7 +73,7 @@ public class RobotConfig {
     // TeleOp holds that row's RPM. Fill it from shot-table.html (~/Desktop/BioBuzz-Turret).
     // Only one distance is tested so far, so the TeleOp shoots 2700 RPM at every distance until more rows are added.
     public static final double[][] SHOT_TABLE = {
-        {33.5, 2700, 0},  // tested 2026-11-25: 45% in Turret Test, shots consistent
+        {32, 2700, 0},  // tested 2026-11-25: flywheel shaft to CELL opening 32 in, 45% in Turret Test, shots consistent
     };
 
     /* ===================== DRIVER CONTROLS ===================== */
