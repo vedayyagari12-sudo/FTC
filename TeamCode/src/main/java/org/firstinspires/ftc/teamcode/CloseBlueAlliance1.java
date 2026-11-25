@@ -21,7 +21,7 @@ import org.firstinspires.ftc.teamcode.pedro.Constants;
  *
  * Path (field coordinates in inches, headings in degrees):
  *   Start   (83, 136)  heading 270
- *   Path 1  -> (83, 110)   heading 270 -> 270   flywheel 2200 RPM for 2 s
+ *   Path 1  -> (83, 110)   heading 270 -> 270   flywheel AUTO_FLYWHEEL_RPM for 2 s
  *   Path 2  -> (140.2, 68.2)   heading 270 -> 0     intake for 3 s
  *   Path 3  -> (141.0, 0.64) heading 0   -> 180   wait 200 ms after
  *   Then backs up 3 in.
@@ -72,6 +72,8 @@ public class CloseBlueAlliance1 extends OpMode {
     static final int ALLIANCE = TurretAim.BLUE;           // which HIVE the turret aims at
 
     private DcMotorEx flywheel;
+    private FlywheelPIDF flywheelPID; // tuned PIDF, same controller as the TeleOps
+    private boolean flywheelOn = false;
     private DcMotor intakeMotor;
     private CRServo intakeServo;
     private DcMotor feedingMotor;
@@ -97,9 +99,12 @@ public class CloseBlueAlliance1 extends OpMode {
         Pose p3 = new Pose(P3_X, P3_Y, Math.toRadians(P3_END_DEG));
 
         flywheel = hardwareMap.get(DcMotorEx.class, FLYWHEEL_NAME);
-        flywheel.setMode(DcMotor.RunMode.RUN_USING_ENCODER); // uses the attached encoder for speed control
+        // FlywheelPIDF sets the power itself; reverse so shooting = positive power and positive RPM.
+        flywheel.setMode(DcMotor.RunMode.RUN_WITHOUT_ENCODER);
+        flywheel.setDirection(FLYWHEEL_DIRECTION < 0 ? DcMotor.Direction.REVERSE : DcMotor.Direction.FORWARD);
         flywheel.setZeroPowerBehavior(DcMotor.ZeroPowerBehavior.FLOAT);
         flywheel.setPower(0);
+        flywheelPID = new FlywheelPIDF(flywheel);
         intakeMotor = hardwareMap.dcMotor.get(INTAKE_MOTOR_NAME);
         intakeMotor.setMode(DcMotor.RunMode.RUN_WITHOUT_ENCODER);
         intakeMotor.setZeroPowerBehavior(DcMotor.ZeroPowerBehavior.BRAKE);
@@ -143,6 +148,7 @@ public class CloseBlueAlliance1 extends OpMode {
     @Override
     public void loop() {
         follower.update();
+        flywheel.setPower(flywheelPID.pidf(flywheelOn ? AUTO_FLYWHEEL_RPM : 0)); // every loop
         aimTurret();
 
         switch (state) {
@@ -178,7 +184,7 @@ public class CloseBlueAlliance1 extends OpMode {
 
             case WAITING:
                 if (step == 0 && waitTimer.milliseconds() >= FLYWHEEL_MS) {
-                    flywheel.setPower(0);
+                    flywheelOn = false;
                     feedingMotor.setPower(0);
                     step = 1;
                     follower.follow(paths[1]);
@@ -255,11 +261,11 @@ public class CloseBlueAlliance1 extends OpMode {
     }
 
     private double flywheelRpm() {
-        return Math.abs(flywheel.getVelocity()) / FLYWHEEL_TICKS_PER_REV * 60.0;
+        return flywheelPID.rpm();
     }
 
     private void startFlywheel() {
-        flywheel.setVelocity(FLYWHEEL_DIRECTION * AUTO_FLYWHEEL_RPM / 60.0 * FLYWHEEL_TICKS_PER_REV);
+        flywheelOn = true;
     }
 
     @Override

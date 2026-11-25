@@ -58,7 +58,9 @@ public class RobotConfig {
     public static final double FLYWHEEL_DIRECTION     = -1.0;  // the flywheel shoots with NEGATIVE power on this robot
     public static final double FLYWHEEL_TICKS_PER_REV = 28.0;  // TODO confirm: encoder ticks per flywheel turn (bare goBILDA motor = 28)
     public static final double FLYWHEEL_RPM_TOLERANCE = 100;   // "at speed" = within this many RPM of the target
-    public static final double AUTO_FLYWHEEL_RPM      = 2200;  // RPM the autos shoot at
+    // RPM the autos shoot at, held by FlywheelPIDF. The auto shooting spots are about 27 in (Close) and 30 in (Far)
+    // from the flywheel shaft to the CELL, near the 32 in where 2700 was tested. Retune once SHOT_TABLE has more rows.
+    public static final double AUTO_FLYWHEEL_RPM      = 2700;
     // Autos wait for the flywheel before Path 1: at least REV_MIN_MS, at most REV_TIMEOUT_MS.
     public static final double REV_MIN_MS     = 800;
     public static final double REV_TIMEOUT_MS = 3000;
