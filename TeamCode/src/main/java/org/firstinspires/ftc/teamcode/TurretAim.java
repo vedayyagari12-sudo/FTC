@@ -20,8 +20,9 @@ public class TurretAim {
     static final double CELL_Z   = 58.3;   // CELL opening center height in inches (derived - measure your field)
 
     /* ---------------- ROBOT (PLACEHOLDERS - measure on the robot) ---------------- */
-    static final double PIVOT_FORWARD_IN = 0;  // TODO: turret pivot this far in FRONT of the robot center (negative = behind)
-    static final double PIVOT_LEFT_IN    = 0;  // TODO: turret pivot this far LEFT of the robot center (negative = right)
+    // Turret removed for now (2026-11-25): the "pivot" is the fixed flywheel shaft, so SHAFT_AHEAD_IN stays 0.
+    static final double PIVOT_FORWARD_IN = -5.5; // measured: flywheel shaft about 5.5 in BEHIND the robot center (negative = behind)
+    static final double PIVOT_LEFT_IN    = 0;    // assumed centered side to side (negative = right); measure to confirm
     static final double SHOOTER_Z_IN     = 12; // TODO: height the ball leaves the shooter
     // The team measures shot distances from the flywheel shaft, so distanceIn is from the shaft too.
     static final double SHAFT_AHEAD_IN   = 0;  // TODO: flywheel shaft this far in FRONT of the turret pivot, along the way the shooter points (negative = behind)
@@ -79,9 +80,10 @@ public class TurretAim {
     public static void main(String[] args) {
         Result r = aim(61, 34, Math.toRadians(90), RED);              // Close Red shooting spot
         check(!r.targetFar && near(r.targetX, 59.25, 1e-9) && near(r.targetY, 55.5, 1e-9), "close red target");
-        check(near(r.turretDeg, 4.65, 0.01) && near(r.distanceIn, 21.57, 0.01) && near(r.servoPos, 0.5 + 4.65 / 300, 1e-4), "close red aim");
+        // Expected values assume PIVOT_FORWARD_IN = -5.5, PIVOT_LEFT_IN = 0, SHAFT_AHEAD_IN = 0 (shooter 5.5 in behind center).
+        check(near(r.turretDeg, 3.71, 0.01) && near(r.distanceIn, 27.06, 0.01) && near(r.servoPos, 0.5 + 3.7084 / 300, 1e-4), "close red aim");
         r = aim(83, 110, Math.toRadians(270), BLUE);                  // Close Blue shooting spot
-        check(r.targetFar && near(r.targetX, 84.75, 1e-9) && near(r.targetY, 88.5, 1e-9) && near(r.turretDeg, 4.65, 0.01), "close blue aim");
+        check(r.targetFar && near(r.targetX, 84.75, 1e-9) && near(r.targetY, 88.5, 1e-9) && near(r.turretDeg, 3.71, 0.01), "close blue aim");
         r = aim(57, 113, Math.toRadians(270), RED);                   // Far Red shooting spot, robot already faces the HIVE
         check(r.targetFar && !r.outOfRange, "far red in range");
         r = aim(60, 20, Math.toRadians(-90), RED);                    // facing away from the HIVE: needs about 180, so it clamps
