@@ -202,7 +202,7 @@ public class RedTeleOp extends OpMode {
         flywheel.setPower(flywheelPID.pidf(targetRPM));
         flywheelAtSpeed = Math.abs(targetRPM - currentRPM) < FLYWHEEL_RPM_TOLERANCE;
 
-        telemetry.addData("Target RPM", targetRPM);
+        telemetry.addData("Flywheel RPM", "%.0f target, %.0f actual", targetRPM, currentRPM);
     }
 
     private double interpolate(double[][] table, double distance, int column) {
