@@ -62,10 +62,11 @@ public class RobotConfig {
     // Autos wait for the flywheel before Path 1: at least REV_MIN_MS, at most REV_TIMEOUT_MS.
     public static final double REV_MIN_MS     = 800;
     public static final double REV_TIMEOUT_MS = 3000;
-    // TeleOp flywheel speed controller (Pedro PIDController) - TODO: tune.
-    public static final double FLYWHEEL_P = 0.001, FLYWHEEL_I = 0, FLYWHEEL_D = 0;
-    // FlywheelPIDF (Turret Test) also uses F: power per target RPM, about 1 / max RPM. Max RPM sets what 100% means.
-    public static final double FLYWHEEL_F = 0.00017;  // TODO: tune
+    // FlywheelPIDF gains (Red/Blue TeleOp and Turret Test). F = power per target RPM, about 1 / max RPM.
+    // Tuned 2026-11-25 with the Flywheel Tuner Data TeleOp + flywheel-pidf-tuner.html:
+    // measured K = 5261 RPM at full power, tau = 0.81 s, noise +/-32 RPM, loop 6 ms, ball dip 70 RPM at 2599 RPM.
+    public static final double FLYWHEEL_P = 0.00135, FLYWHEEL_I = 0.0000833, FLYWHEEL_D = 0;
+    public static final double FLYWHEEL_F = 0.00019;
     public static final double FLYWHEEL_MAX_RPM = 6000; // TODO confirm: free speed of the flywheel motor (6000 for a bare goBILDA 5203)
     // TeleOp shot table: {distance from turret to CELL in inches, flywheel RPM, ramp/hood position (unused for now)}.
     // PLACEHOLDER rows - replace with tested values. Distances in between are blended.

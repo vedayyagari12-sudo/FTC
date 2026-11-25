@@ -9,7 +9,6 @@ import com.qualcomm.robotcore.hardware.DcMotor;
 import com.qualcomm.robotcore.hardware.DcMotorEx;
 import com.qualcomm.robotcore.hardware.Servo;
 import com.qualcomm.robotcore.util.Range;
-import com.pedropathing.controllers.PIDController;
 import com.pedropathing.follower.Follower;
 import com.pedropathing.math.Pose;
 import org.firstinspires.ftc.teamcode.pedro.Constants;
@@ -29,7 +28,7 @@ public class RedTeleOp extends OpMode {
     DcMotorEx flywheel;
     DcMotor feedingMotor;
     Follower follower;
-    PIDController flywheelPID; // TODO: swap in your actual PID class if the name/signature differs
+    FlywheelPIDF flywheelPID; // same controller as Turret Test; gains FLYWHEEL_P/I/D/F in RobotConfig
 
     /* ---------------- HIVE CELL CONFIG ---------------- */
     // Which alliance HIVE to aim at. BlueTeleOp extends this class and returns TurretAim.BLUE.
@@ -81,11 +80,13 @@ public class RedTeleOp extends OpMode {
         // The autos spin the flywheel with FLYWHEEL_DIRECTION * speed; reversing the motor here gives the same
         // direction with positive power, so the RPM math below stays positive.
         flywheel.setDirection(FLYWHEEL_DIRECTION < 0 ? DcMotor.Direction.REVERSE : DcMotor.Direction.FORWARD);
+        // The autos leave the flywheel in RUN_USING_ENCODER; the hub's own speed loop would fight FlywheelPIDF.
+        flywheel.setMode(DcMotor.RunMode.RUN_WITHOUT_ENCODER);
         feedingMotor = hardwareMap.dcMotor.get(FEEDING_MOTOR_NAME);
         feedingMotor.setMode(DcMotor.RunMode.RUN_WITHOUT_ENCODER);
         feedingMotor.setZeroPowerBehavior(DcMotor.ZeroPowerBehavior.BRAKE);
         feedingMotor.setPower(0);
-        flywheelPID = new PIDController(FLYWHEEL_P, FLYWHEEL_I, FLYWHEEL_D);
+        flywheelPID = new FlywheelPIDF(flywheel);
 
         follower = Constants.create(hardwareMap); // Pedro 3
         // Start where the auto ended (if one just ran), otherwise at TELEOP_START_*. Clear it so a second
@@ -194,9 +195,8 @@ public class RedTeleOp extends OpMode {
     private void updateShooterForDistance(double distance) {
         double targetRPM = interpolate(SHOT_TABLE, distance, 1);
 
-        double currentRPM = flywheel.getVelocity() / FLYWHEEL_TICKS_PER_REV * 60.0;
-        double power = flywheelPID.calculate(targetRPM, targetRPM - currentRPM); // Pedro 3 PIDController takes (target, error)
-        flywheel.setPower(power);
+        double currentRPM = flywheelPID.rpm();
+        flywheel.setPower(flywheelPID.pidf(targetRPM));
         flywheelAtSpeed = Math.abs(targetRPM - currentRPM) < FLYWHEEL_RPM_TOLERANCE;
 
         telemetry.addData("Target RPM", targetRPM);
