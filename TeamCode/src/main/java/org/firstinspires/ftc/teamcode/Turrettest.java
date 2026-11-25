@@ -25,7 +25,7 @@ import org.firstinspires.ftc.teamcode.pedro.Constants;
  *   Gamepad 2 X            : recenter turret and drop ramp to its lowest position
  *   Gamepad 2 B            : intake motor ON / OFF (toggle)
  *   Gamepad 2 RIGHT TRIGGER: hold ALL the way down = feeding motor + intake on; release = feeding stops
- *   Gamepad 2 D-pad up     : next higher flywheel speed (0, 20, 30, 40, 50, 100%). A still turns it on/off.
+ *   Gamepad 2 D-pad up     : next higher flywheel speed (0, 10, 20 ... 100%). A still turns it on/off.
  *   Gamepad 2 D-pad down   : next lower flywheel speed
  *
  * WIRING / HARDWARE CONFIG
@@ -60,8 +60,8 @@ public class Turrettest extends OpMode {
     static final double RAMP_RATE       = 0.005; // how fast the stick moves the ramp per loop
 
     /* ---------------- OTHER (stick deadzone, turn speed and motor powers are in RobotConfig.java) ---------------- */
-    // D-pad up/down steps through these. Starts at 50%.
-    static final double[] FLYWHEEL_PERCENTS = {0.0, 0.20, 0.30, 0.40, 0.50, 1.0};
+    // D-pad up/down steps through these, 0% to 100% in 10% steps. Starts at 50%.
+    static final double[] FLYWHEEL_PERCENTS = {0.0, 0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 1.0};
     static final double TRIGGER_THRESHOLD = 0.9; // right trigger must be pushed (almost) ALL the way down
 
     /* ---------------- HARDWARE ---------------- */
@@ -76,7 +76,7 @@ public class Turrettest extends OpMode {
     double turretPos = TURRET_CENTER;
     double rampPos = RAMP_MIN_POS;
     boolean flywheelOn = false;
-    int flywheelIndex = 4; // 50%
+    int flywheelIndex = 5; // 50%
     boolean flywheelToggleReady = true;
     boolean dpadUpReady = true;
     boolean dpadDownReady = true;
