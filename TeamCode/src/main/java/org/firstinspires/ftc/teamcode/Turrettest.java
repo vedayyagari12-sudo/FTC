@@ -25,8 +25,9 @@ import org.firstinspires.ftc.teamcode.pedro.Constants;
  *   Gamepad 2 X            : recenter turret and drop ramp to its lowest position
  *   Gamepad 2 B            : intake motor ON / OFF (toggle)
  *   Gamepad 2 RIGHT TRIGGER: hold ALL the way down = feeding motor + intake on; release = feeding stops
- *   Gamepad 2 D-pad up     : next higher flywheel speed (0, 10, 20 ... 100%). A still turns it on/off.
- *   Gamepad 2 D-pad down   : next lower flywheel speed
+ *   Gamepad 2 D-pad up/down: flywheel speed +5% / -5% (0 to 100% of FLYWHEEL_MAX_RPM). A still turns it on/off.
+ *   Gamepad 2 D-pad right/left: flywheel speed +1% / -1%
+ *                            The flywheel holds that RPM with FlywheelPIDF (gains: FLYWHEEL_P/I/D/F in RobotConfig).
  *
  * WIRING / HARDWARE CONFIG
  *   Drivetrain     : handled by Pedro (Constants.java) -> FrontLeft, FrontRight, BackLeft, BackRight
@@ -60,8 +61,9 @@ public class Turrettest extends OpMode {
     static final double RAMP_RATE       = 0.005; // how fast the stick moves the ramp per loop
 
     /* ---------------- OTHER (stick deadzone, turn speed and motor powers are in RobotConfig.java) ---------------- */
-    // D-pad up/down steps through these, 0% to 100% in 10% steps. Starts at 50%.
-    static final double[] FLYWHEEL_PERCENTS = {0.0, 0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 1.0};
+    // Flywheel speed in percent (0 to 100). D-pad right/left change it by 1, up/down by 5. Starts at 50%.
+    static final int SMALL_STEP_PERCENT = 1;
+    static final int BIG_STEP_PERCENT = 5;
     static final double TRIGGER_THRESHOLD = 0.9; // right trigger must be pushed (almost) ALL the way down
 
     /* ---------------- HARDWARE ---------------- */
@@ -69,6 +71,7 @@ public class Turrettest extends OpMode {
     Servo turretServo;
     // Servo rampServo;   // RAMP COMMENTED OUT FOR TESTING
     DcMotorEx flywheel;
+    FlywheelPIDF flywheelPIDF;
     DcMotor intakeMotor;
     DcMotor feedingMotor;
 
@@ -76,10 +79,9 @@ public class Turrettest extends OpMode {
     double turretPos = TURRET_CENTER;
     double rampPos = RAMP_MIN_POS;
     boolean flywheelOn = false;
-    int flywheelIndex = 5; // 50%
+    int flywheelPercent = 50;
     boolean flywheelToggleReady = true;
-    boolean dpadUpReady = true;
-    boolean dpadDownReady = true;
+    boolean dpadReady = true;
     boolean intakeOn = false;
     boolean intakeToggleReady = true;
 
@@ -102,9 +104,10 @@ public class Turrettest extends OpMode {
         flywheel = hardwareMap.get(DcMotorEx.class, FLYWHEEL_NAME);
         flywheel.setMode(DcMotor.RunMode.RUN_WITHOUT_ENCODER);
         flywheel.setZeroPowerBehavior(DcMotor.ZeroPowerBehavior.FLOAT);
-        // TODO: if the flywheel spins the wrong way, uncomment:
-        // flywheel.setDirection(DcMotor.Direction.REVERSE);
+        // Same as RedTeleOp: reverse the motor so the shooting direction is positive power and positive RPM.
+        flywheel.setDirection(FLYWHEEL_DIRECTION < 0 ? DcMotor.Direction.REVERSE : DcMotor.Direction.FORWARD);
         flywheel.setPower(0);
+        flywheelPIDF = new FlywheelPIDF(flywheel); // kP kI kD kF come from RobotConfig (FLYWHEEL_P/I/D/F)
 
         // Intake
         intakeMotor = hardwareMap.dcMotor.get(INTAKE_MOTOR_NAME);
@@ -162,18 +165,18 @@ public class Turrettest extends OpMode {
             flywheelOn = !flywheelOn;
             flywheelToggleReady = false;
         }
-        if (!gamepad2.dpad_up) dpadUpReady = true;
-        if (gamepad2.dpad_up && dpadUpReady) {
-            flywheelIndex = Math.min(flywheelIndex + 1, FLYWHEEL_PERCENTS.length - 1);
-            dpadUpReady = false;
+        // One step per press: right/left = 1%, up/down = 5%. Holding a button does not repeat.
+        boolean dpadHeld = gamepad2.dpad_up || gamepad2.dpad_down || gamepad2.dpad_left || gamepad2.dpad_right;
+        if (!dpadHeld) dpadReady = true;
+        if (dpadHeld && dpadReady) {
+            int step = gamepad2.dpad_up ? BIG_STEP_PERCENT : gamepad2.dpad_down ? -BIG_STEP_PERCENT
+                     : gamepad2.dpad_right ? SMALL_STEP_PERCENT : -SMALL_STEP_PERCENT;
+            flywheelPercent = Math.max(0, Math.min(100, flywheelPercent + step));
+            dpadReady = false;
         }
-        if (!gamepad2.dpad_down) dpadDownReady = true;
-        if (gamepad2.dpad_down && dpadDownReady) {
-            flywheelIndex = Math.max(flywheelIndex - 1, 0);
-            dpadDownReady = false;
-        }
-        double flywheelPower = FLYWHEEL_DIRECTION * FLYWHEEL_PERCENTS[flywheelIndex];
-        flywheel.setPower(flywheelOn ? flywheelPower : 0);
+        // Target speed = the D-pad percent. Later, odometry can replace this with the RPM for the distance to the CELL.
+        double targetRpm = flywheelPercent / 100.0 * FLYWHEEL_MAX_RPM;
+        flywheel.setPower(flywheelPIDF.pidf(flywheelOn ? targetRpm : 0));
 
         /* -------- INTAKE (gamepad2 B toggles) -------- */
         if (!gamepad2.b) intakeToggleReady = true;
@@ -194,10 +197,10 @@ public class Turrettest extends OpMode {
         // telemetry.addData("Ramp pos", "%.3f (about %.0f deg of travel)", rampPos,   // RAMP COMMENTED OUT
         //         Math.abs(rampPos - RAMP_MIN_POS) * SERVO_RANGE_DEG);
         telemetry.addData("Flywheel", flywheelOn ? "ON" : "OFF");
-        telemetry.addData("Flywheel power", "%.0f%%", Math.abs(flywheelPower) * 100);
+        telemetry.addData("Flywheel target", "%d%% = %.0f RPM", flywheelPercent, targetRpm);
         telemetry.addData("Intake", (intakeOn || feeding) ? "ON" : "OFF");
         telemetry.addData("Feeding motor", feeding ? "ON" : "OFF");
-        telemetry.addData("Flywheel velocity (ticks/s)", "%.0f", flywheel.getVelocity());
+        telemetry.addData("Flywheel actual RPM", "%.0f", flywheelPIDF.rpm());
         telemetry.update();
     }
 
