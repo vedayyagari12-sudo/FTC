@@ -176,7 +176,10 @@ public class RedTeleOp extends OpMode {
 
         telemetry.addData("Hive target", targetIsBackCell ? "BACK" : "AUDIENCE");
         telemetry.addData("Turret", "%.1f deg, servo %.3f%s", aim.turretDeg, servoPos, aim.outOfRange ? " (OUT OF RANGE)" : "");
-        telemetry.addData("Distance", distance);
+        telemetry.addData("Distance", "%.1f in (flywheel shaft to CELL)", distance);
+        // For checking odometry against a tape measure: where the robot thinks it is, and the CELL point it aims at.
+        telemetry.addData("Robot pose", "x %.1f  y %.1f  heading %.0f deg", pose.x(), pose.y(), Math.toDegrees(pose.heading()));
+        telemetry.addData("CELL point", "x %.1f  y %.1f", aim.targetX, aim.targetY);
     }
 
     // D-pad up = far (back) CELL, down = audience CELL, left = back to automatic (half line).
