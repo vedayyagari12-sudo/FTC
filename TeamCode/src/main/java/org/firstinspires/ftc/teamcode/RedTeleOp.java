@@ -196,26 +196,13 @@ public class RedTeleOp extends OpMode {
 
     // Blends between the nearest measured distance/RPM points in the table.
     private void updateShooterForDistance(double distance) {
-        double targetRPM = interpolate(SHOT_TABLE, distance, 1);
+        double targetRPM = shotRpm(distance);
 
         double currentRPM = flywheelPID.rpm();
         flywheel.setPower(flywheelPID.pidf(targetRPM));
         flywheelAtSpeed = Math.abs(targetRPM - currentRPM) < FLYWHEEL_RPM_TOLERANCE;
 
         telemetry.addData("Flywheel RPM", "%.0f target, %.0f actual", targetRPM, currentRPM);
-    }
-
-    private double interpolate(double[][] table, double distance, int column) {
-        if (distance <= table[0][0]) return table[0][column];
-        if (distance >= table[table.length - 1][0]) return table[table.length - 1][column];
-        for (int i = 0; i < table.length - 1; i++) {
-            double d0 = table[i][0], d1 = table[i + 1][0];
-            if (distance >= d0 && distance <= d1) {
-                double t = (distance - d0) / (d1 - d0);
-                return table[i][column] + t * (table[i + 1][column] - table[i][column]);
-            }
-        }
-        return table[table.length - 1][column];
     }
 
     /* ---------------- INTAKE HELPERS ---------------- */
