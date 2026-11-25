@@ -23,6 +23,8 @@ public class TurretAim {
     static final double PIVOT_FORWARD_IN = 0;  // TODO: turret pivot this far in FRONT of the robot center (negative = behind)
     static final double PIVOT_LEFT_IN    = 0;  // TODO: turret pivot this far LEFT of the robot center (negative = right)
     static final double SHOOTER_Z_IN     = 12; // TODO: height the ball leaves the shooter
+    // The team measures shot distances from the flywheel shaft, so distanceIn is from the shaft too.
+    static final double SHAFT_AHEAD_IN   = 0;  // TODO: flywheel shaft this far in FRONT of the turret pivot, along the way the shooter points (negative = behind)
 
     /* ---------------- TURRET SERVO (standard positional Servo, not continuous; Turrettest uses these too) ---------------- */
     static final double TURRET_CENTER    = 0.5;   // servo position that points the way the robot faces
@@ -38,7 +40,7 @@ public class TurretAim {
         public double turretDeg;     // turret angle from straight ahead, counter-clockwise positive, clamped to the limit
         public boolean outOfRange;   // the target needs more than TURRET_LIMIT_DEG, so turretDeg was clamped
         public double servoPos;      // value for turretServo.setPosition()
-        public double distanceIn;    // flat distance from the turret pivot to the CELL opening (for the shot table)
+        public double distanceIn;    // flat distance from the flywheel shaft to the CELL opening (for the shot table)
         public double heightIn;      // CELL_Z - SHOOTER_Z_IN
     }
 
@@ -62,7 +64,8 @@ public class TurretAim {
         r.turretDeg = Math.max(-TURRET_LIMIT_DEG, Math.min(TURRET_LIMIT_DEG, raw));
         r.outOfRange = Math.abs(raw) > TURRET_LIMIT_DEG;
         r.servoPos = TURRET_CENTER + TURRET_SIGN * r.turretDeg / TURRET_RANGE_DEG;
-        r.distanceIn = Math.hypot(r.targetX - px, r.targetY - py);
+        // The shooter points at the CELL, so the shaft sits on the pivot-to-CELL line, SHAFT_AHEAD_IN closer.
+        r.distanceIn = Math.hypot(r.targetX - px, r.targetY - py) - SHAFT_AHEAD_IN;
         r.heightIn = CELL_Z - SHOOTER_Z_IN;
         return r;
     }

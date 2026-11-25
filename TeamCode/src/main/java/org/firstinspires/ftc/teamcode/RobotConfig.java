@@ -68,12 +68,12 @@ public class RobotConfig {
     public static final double FLYWHEEL_P = 0.00135, FLYWHEEL_I = 0.0000833, FLYWHEEL_D = 0;
     public static final double FLYWHEEL_F = 0.00019;
     public static final double FLYWHEEL_MAX_RPM = 6000; // TODO confirm: free speed of the flywheel motor (6000 for a bare goBILDA 5203)
-    // TeleOp shot table: {distance from turret to CELL in inches, flywheel RPM, ramp/hood position (unused for now)}.
-    // PLACEHOLDER rows - replace with tested values. Distances in between are blended.
+    // TeleOp shot table: {flat distance from the flywheel shaft to the CELL opening in inches, flywheel RPM,
+    // ramp/hood position (unused for now)}. Distances in between are blended; past the first or last row the
+    // TeleOp holds that row's RPM. Fill it from shot-table.html (~/Desktop/BioBuzz-Turret).
+    // Only one distance is tested so far, so the TeleOp shoots 2700 RPM at every distance until more rows are added.
     public static final double[][] SHOT_TABLE = {
-        {24, 2400, 0.30},
-        {60, 2900, 0.45},
-        {96, 3400, 0.60},
+        {33.5, 2700, 0},  // tested 2026-11-25: 45% in Turret Test, shots consistent
     };
 
     /* ===================== DRIVER CONTROLS ===================== */
