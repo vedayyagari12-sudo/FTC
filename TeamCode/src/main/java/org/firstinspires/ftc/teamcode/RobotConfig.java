@@ -58,7 +58,6 @@ public class RobotConfig {
     public static final double FLYWHEEL_DIRECTION     = -1.0;  // the flywheel shoots with NEGATIVE power on this robot
     public static final double FLYWHEEL_TICKS_PER_REV = 28.0;  // TODO confirm: encoder ticks per flywheel turn (bare goBILDA motor = 28)
     public static final double FLYWHEEL_RPM_TOLERANCE = 100;   // "at speed" = within this many RPM of the target
-    public static final double AUTO_FLYWHEEL_RPM      = 2200;  // RPM the autos shoot at
     // Autos wait for the flywheel before Path 1: at least REV_MIN_MS, at most REV_TIMEOUT_MS.
     public static final double REV_MIN_MS     = 800;
     public static final double REV_TIMEOUT_MS = 3000;
@@ -68,13 +67,27 @@ public class RobotConfig {
     public static final double FLYWHEEL_P = 0.00135, FLYWHEEL_I = 0.0000833, FLYWHEEL_D = 0;
     public static final double FLYWHEEL_F = 0.00019;
     public static final double FLYWHEEL_MAX_RPM = 6000; // TODO confirm: free speed of the flywheel motor (6000 for a bare goBILDA 5203)
-    // TeleOp shot table: {distance from turret to CELL in inches, flywheel RPM, ramp/hood position (unused for now)}.
-    // PLACEHOLDER rows - replace with tested values. Distances in between are blended.
+    // TeleOp shot table: {flat distance from the flywheel shaft to the CELL opening in inches, flywheel RPM,
+    // ramp/hood position (unused for now)}. Distances in between are blended; past the first or last row the
+    // TeleOp holds that row's RPM. Fill it from shot-table.html (~/Desktop/BioBuzz-Turret).
+    // TeleOps and autos both pick their RPM here from the odometry distance (shotRpm below). With only one row the
+    // answer is that row's RPM at every distance; each tested row added makes the RPM follow distance.
     public static final double[][] SHOT_TABLE = {
-        {24, 2400, 0.30},
-        {60, 2900, 0.45},
-        {96, 3400, 0.60},
+        {32, 2700, 0},  // tested 2026-11-25: flywheel shaft to CELL opening 32 in, 45% in Turret Test, shots consistent
     };
+
+    /** Flywheel RPM for a flat distance (inches, flywheel shaft to CELL), blended between SHOT_TABLE rows. */
+    public static double shotRpm(double distanceIn) {
+        double[][] t = SHOT_TABLE;
+        if (distanceIn <= t[0][0]) return t[0][1];
+        for (int i = 1; i < t.length; i++) {
+            if (distanceIn <= t[i][0]) {
+                double f = (distanceIn - t[i - 1][0]) / (t[i][0] - t[i - 1][0]);
+                return t[i - 1][1] + f * (t[i][1] - t[i - 1][1]);
+            }
+        }
+        return t[t.length - 1][1]; // past the last row: hold its RPM
+    }
 
     /* ===================== DRIVER CONTROLS ===================== */
     public static final double TURN_SCALE     = 0.6;  // right stick turn speed (1.0 = full)

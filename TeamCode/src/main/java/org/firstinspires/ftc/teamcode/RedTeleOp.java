@@ -176,7 +176,10 @@ public class RedTeleOp extends OpMode {
 
         telemetry.addData("Hive target", targetIsBackCell ? "BACK" : "AUDIENCE");
         telemetry.addData("Turret", "%.1f deg, servo %.3f%s", aim.turretDeg, servoPos, aim.outOfRange ? " (OUT OF RANGE)" : "");
-        telemetry.addData("Distance", distance);
+        telemetry.addData("Distance", "%.1f in (flywheel shaft to CELL)", distance);
+        // For checking odometry against a tape measure: where the robot thinks it is, and the CELL point it aims at.
+        telemetry.addData("Robot pose", "x %.1f  y %.1f  heading %.0f deg", pose.x(), pose.y(), Math.toDegrees(pose.heading()));
+        telemetry.addData("CELL point", "x %.1f  y %.1f", aim.targetX, aim.targetY);
     }
 
     // D-pad up = far (back) CELL, down = audience CELL, left = back to automatic (half line).
@@ -193,26 +196,13 @@ public class RedTeleOp extends OpMode {
 
     // Blends between the nearest measured distance/RPM points in the table.
     private void updateShooterForDistance(double distance) {
-        double targetRPM = interpolate(SHOT_TABLE, distance, 1);
+        double targetRPM = shotRpm(distance);
 
         double currentRPM = flywheelPID.rpm();
         flywheel.setPower(flywheelPID.pidf(targetRPM));
         flywheelAtSpeed = Math.abs(targetRPM - currentRPM) < FLYWHEEL_RPM_TOLERANCE;
 
-        telemetry.addData("Target RPM", targetRPM);
-    }
-
-    private double interpolate(double[][] table, double distance, int column) {
-        if (distance <= table[0][0]) return table[0][column];
-        if (distance >= table[table.length - 1][0]) return table[table.length - 1][column];
-        for (int i = 0; i < table.length - 1; i++) {
-            double d0 = table[i][0], d1 = table[i + 1][0];
-            if (distance >= d0 && distance <= d1) {
-                double t = (distance - d0) / (d1 - d0);
-                return table[i][column] + t * (table[i + 1][column] - table[i][column]);
-            }
-        }
-        return table[table.length - 1][column];
+        telemetry.addData("Flywheel RPM", "%.0f target, %.0f actual", targetRPM, currentRPM);
     }
 
     /* ---------------- INTAKE HELPERS ---------------- */

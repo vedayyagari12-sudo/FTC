@@ -20,9 +20,12 @@ public class TurretAim {
     static final double CELL_Z   = 58.3;   // CELL opening center height in inches (derived - measure your field)
 
     /* ---------------- ROBOT (PLACEHOLDERS - measure on the robot) ---------------- */
-    static final double PIVOT_FORWARD_IN = 0;  // TODO: turret pivot this far in FRONT of the robot center (negative = behind)
-    static final double PIVOT_LEFT_IN    = 0;  // TODO: turret pivot this far LEFT of the robot center (negative = right)
+    // Turret removed for now (2026-11-25): the "pivot" is the fixed flywheel shaft, so SHAFT_AHEAD_IN stays 0.
+    static final double PIVOT_FORWARD_IN = -5.5; // measured: flywheel shaft about 5.5 in BEHIND the robot center (negative = behind)
+    static final double PIVOT_LEFT_IN    = 0;    // assumed centered side to side (negative = right); measure to confirm
     static final double SHOOTER_Z_IN     = 12; // TODO: height the ball leaves the shooter
+    // The team measures shot distances from the flywheel shaft, so distanceIn is from the shaft too.
+    static final double SHAFT_AHEAD_IN   = 0;  // TODO: flywheel shaft this far in FRONT of the turret pivot, along the way the shooter points (negative = behind)
 
     /* ---------------- TURRET SERVO (standard positional Servo, not continuous; Turrettest uses these too) ---------------- */
     static final double TURRET_CENTER    = 0.5;   // servo position that points the way the robot faces
@@ -38,7 +41,7 @@ public class TurretAim {
         public double turretDeg;     // turret angle from straight ahead, counter-clockwise positive, clamped to the limit
         public boolean outOfRange;   // the target needs more than TURRET_LIMIT_DEG, so turretDeg was clamped
         public double servoPos;      // value for turretServo.setPosition()
-        public double distanceIn;    // flat distance from the turret pivot to the CELL opening (for the shot table)
+        public double distanceIn;    // flat distance from the flywheel shaft to the CELL opening (for the shot table)
         public double heightIn;      // CELL_Z - SHOOTER_Z_IN
     }
 
@@ -62,7 +65,8 @@ public class TurretAim {
         r.turretDeg = Math.max(-TURRET_LIMIT_DEG, Math.min(TURRET_LIMIT_DEG, raw));
         r.outOfRange = Math.abs(raw) > TURRET_LIMIT_DEG;
         r.servoPos = TURRET_CENTER + TURRET_SIGN * r.turretDeg / TURRET_RANGE_DEG;
-        r.distanceIn = Math.hypot(r.targetX - px, r.targetY - py);
+        // The shooter points at the CELL, so the shaft sits on the pivot-to-CELL line, SHAFT_AHEAD_IN closer.
+        r.distanceIn = Math.hypot(r.targetX - px, r.targetY - py) - SHAFT_AHEAD_IN;
         r.heightIn = CELL_Z - SHOOTER_Z_IN;
         return r;
     }
@@ -76,9 +80,10 @@ public class TurretAim {
     public static void main(String[] args) {
         Result r = aim(61, 34, Math.toRadians(90), RED);              // Close Red shooting spot
         check(!r.targetFar && near(r.targetX, 59.25, 1e-9) && near(r.targetY, 55.5, 1e-9), "close red target");
-        check(near(r.turretDeg, 4.65, 0.01) && near(r.distanceIn, 21.57, 0.01) && near(r.servoPos, 0.5 + 4.65 / 300, 1e-4), "close red aim");
+        // Expected values assume PIVOT_FORWARD_IN = -5.5, PIVOT_LEFT_IN = 0, SHAFT_AHEAD_IN = 0 (shooter 5.5 in behind center).
+        check(near(r.turretDeg, 3.71, 0.01) && near(r.distanceIn, 27.06, 0.01) && near(r.servoPos, 0.5 + 3.7084 / 300, 1e-4), "close red aim");
         r = aim(83, 110, Math.toRadians(270), BLUE);                  // Close Blue shooting spot
-        check(r.targetFar && near(r.targetX, 84.75, 1e-9) && near(r.targetY, 88.5, 1e-9) && near(r.turretDeg, 4.65, 0.01), "close blue aim");
+        check(r.targetFar && near(r.targetX, 84.75, 1e-9) && near(r.targetY, 88.5, 1e-9) && near(r.turretDeg, 3.71, 0.01), "close blue aim");
         r = aim(57, 113, Math.toRadians(270), RED);                   // Far Red shooting spot, robot already faces the HIVE
         check(r.targetFar && !r.outOfRange, "far red in range");
         r = aim(60, 20, Math.toRadians(-90), RED);                    // facing away from the HIVE: needs about 180, so it clamps

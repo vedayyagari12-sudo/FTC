@@ -69,6 +69,10 @@ public class FarRedAlliance1 extends OpMode {
 
     private Follower follower;
     private DcMotorEx flywheel;
+    private FlywheelPIDF flywheelPID; // tuned PIDF, same controller as the TeleOps
+    private boolean flywheelOn = false;
+    private double targetRpm; // SHOT_TABLE RPM for the distance from the shooting spot to the CELL
+    private double shotDistanceIn;
     private DcMotor intakeMotor;
     private CRServo intakeServo;
     private DcMotor feedingMotor;
@@ -90,9 +94,15 @@ public class FarRedAlliance1 extends OpMode {
         Pose p4 = new Pose(P4_X, P4_Y, Math.toRadians(P4_HEADING_DEG));
 
         flywheel = hardwareMap.get(DcMotorEx.class, FLYWHEEL_NAME);
-        flywheel.setMode(DcMotor.RunMode.RUN_USING_ENCODER); // uses the attached encoder for speed control
+        // FlywheelPIDF sets the power itself; reverse so shooting = positive power and positive RPM.
+        flywheel.setMode(DcMotor.RunMode.RUN_WITHOUT_ENCODER);
+        flywheel.setDirection(FLYWHEEL_DIRECTION < 0 ? DcMotor.Direction.REVERSE : DcMotor.Direction.FORWARD);
         flywheel.setZeroPowerBehavior(DcMotor.ZeroPowerBehavior.FLOAT);
         flywheel.setPower(0);
+        flywheelPID = new FlywheelPIDF(flywheel);
+        // Pedro drives to the shooting spot by odometry; rev to the RPM for that spot's distance to the CELL.
+        shotDistanceIn = TurretAim.aim(P1_X, P1_Y, Math.toRadians(P1_HEADING_DEG), ALLIANCE).distanceIn;
+        targetRpm = shotRpm(shotDistanceIn);
         intakeMotor = hardwareMap.dcMotor.get(INTAKE_MOTOR_NAME);
         intakeMotor.setMode(DcMotor.RunMode.RUN_WITHOUT_ENCODER);
         intakeMotor.setZeroPowerBehavior(DcMotor.ZeroPowerBehavior.BRAKE);
@@ -136,12 +146,13 @@ public class FarRedAlliance1 extends OpMode {
     @Override
     public void loop() {
         follower.update();
+        flywheel.setPower(flywheelPID.pidf(flywheelOn ? targetRpm : 0)); // every loop
         aimTurret();
 
         switch (state) {
             case START_DELAY:
                 if (waitTimer.milliseconds() >= START_DELAY_MS) {
-                    flywheel.setVelocity(FLYWHEEL_DIRECTION * AUTO_FLYWHEEL_RPM / 60.0 * FLYWHEEL_TICKS_PER_REV);
+                    flywheelOn = true;
                     waitTimer.reset();
                     state = State.REV_WAIT;
                 }
@@ -149,7 +160,7 @@ public class FarRedAlliance1 extends OpMode {
 
             case REV_WAIT: {
                 double t = waitTimer.milliseconds();
-                boolean atSpeed = Math.abs(flywheelRpm() - AUTO_FLYWHEEL_RPM) < FLYWHEEL_RPM_TOLERANCE;
+                boolean atSpeed = Math.abs(flywheelRpm() - targetRpm) < FLYWHEEL_RPM_TOLERANCE;
                 if ((atSpeed && t >= REV_MIN_MS) || t >= REV_TIMEOUT_MS) {
                     follower.follow(paths[0]);
                     state = State.DRIVING;
@@ -200,7 +211,7 @@ public class FarRedAlliance1 extends OpMode {
         telemetry.addData("Turret", "%.1f deg, servo %.3f, %.1f in to the %s CELL%s", aim.turretDeg, aim.servoPos, aim.distanceIn,
                 aim.targetFar ? "far" : "audience", aim.outOfRange ? " (OUT OF RANGE)" : "");
         telemetry.addData("Path step", "%d of %d", Math.min(step + 1, paths.length), paths.length);
-        telemetry.addData("Flywheel RPM", "%.0f (target %.0f)", flywheelRpm(), AUTO_FLYWHEEL_RPM);
+        telemetry.addData("Flywheel RPM", "%.0f (target %.0f for %.1f in)", flywheelRpm(), targetRpm, shotDistanceIn);
         telemetry.addData("Pose", "x %.1f  y %.1f  heading %.0f deg", pose.x(), pose.y(), Math.toDegrees(pose.heading()));
         telemetry.update();
     }
@@ -224,7 +235,7 @@ public class FarRedAlliance1 extends OpMode {
     }
 
     private double flywheelRpm() {
-        return Math.abs(flywheel.getVelocity()) / FLYWHEEL_TICKS_PER_REV * 60.0;
+        return flywheelPID.rpm();
     }
 
     /** Starts the mechanism for this path. It runs during the wait after the path. */
@@ -254,7 +265,7 @@ public class FarRedAlliance1 extends OpMode {
                 intakeServo.setPower(0);
                 break;
             case 2: // second shot finished
-                flywheel.setPower(0);
+                flywheelOn = false;
                 feedingMotor.setPower(0);
                 break;
         }
