@@ -22,8 +22,8 @@ import org.firstinspires.ftc.teamcode.pedro.Constants;
  * Path (field coordinates in inches, headings in degrees):
  *   Start   (83, 136)  heading 270
  *   Path 1  -> (83, 110)   heading 270 -> 270   flywheel SHOT_TABLE RPM for 2 s
- *   Path 2  -> (140.2, 68.2)   heading 270 -> 0     intake for 3 s
- *   Path 3  -> (141.0, 0.64) heading 0   -> 180   wait 200 ms after
+ *   Path 2  -> (133, 68.2)   heading 270 -> 0     intake for 3 s
+ *   Path 3  -> (134, 10) heading 0   -> 180   wait 200 ms after
  *   Then backs up 3 in.
  *
  * Order: flywheel revs up (robot waits) -> Path 1 -> shoot 2 s -> Path 2 -> intake while moving
@@ -51,10 +51,10 @@ public class CloseBlueAlliance1 extends OpMode {
     static final double P1_X = 83,  P1_Y = 110;
     static final double P1_START_DEG = 270, P1_END_DEG = 270;
     // Path 2
-    static final double P2_X = 140.2, P2_Y = 68.2;
+    static final double P2_X = 133, P2_Y = 68.2;   // was 140.2: center 9 in + 2 in flower move from the blue wall
     static final double P2_START_DEG = 270, P2_END_DEG = 0;
     // Path 3
-    static final double P3_X = 141.0, P3_Y = 0.64;
+    static final double P3_X = 134, P3_Y = 10;     // was (141.0, 0.64): inside the walls, so the path never ended
     static final double P3_START_DEG = 0,   P3_END_DEG = 180;
 
     /* ---------------- WAIT AFTER EACH PATH (milliseconds) ---------------- */

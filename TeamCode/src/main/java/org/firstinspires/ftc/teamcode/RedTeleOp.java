@@ -55,12 +55,15 @@ public class RedTeleOp extends OpMode {
     boolean intakeToggleReady = true;
 
     boolean targetIsBackCell = true;
-    Boolean cellOverride = null; // null = pick by half line; true = far/back CELL; false = audience CELL
+    // Driver-picked RPM: gamepad2 D-pad up/down steps through the SHOT_TABLE rows (odometry distance is
+    // not trusted yet). Starts on the row nearest the 32 in tested shot.
+    int presetIndex = nearestShotRow(32);
+    boolean presetDpadReady = true;
     double lastCommandedAngle = Double.NaN;
     long lastAngleChangeTime = 0;
     boolean flywheelAtSpeed = false;
 
-    boolean manualMode = false;
+    boolean manualMode = true; // turret removed: MANUAL fires once the flywheel is at speed (AUTO also waits for the turret)
     boolean modeToggleReady = true;
     double manualTurretPos = TurretAim.TURRET_CENTER;
     double lastTurretPos = TurretAim.TURRET_CENTER;
@@ -98,7 +101,7 @@ public class RedTeleOp extends OpMode {
         telemetry.addData("Start pose", "%s: x %.1f  y %.1f  heading %.0f deg", fromAuto ? "from auto" : "default start",
                 start.x(), start.y(), Math.toDegrees(start.heading()));
 
-        telemetry.addLine((alliance() == TurretAim.RED ? "Red" : "Blue") + " TeleOp initialized. GP2: B intake, LB auto/manual, D-pad up/down/left force far/audience/auto cell, RT fire.");
+        telemetry.addLine((alliance() == TurretAim.RED ? "Red" : "Blue") + " TeleOp initialized. GP2: B intake, LB auto/manual aim, D-pad up/down shot preset, RT fire.");
         telemetry.update();
     }
 
@@ -182,27 +185,44 @@ public class RedTeleOp extends OpMode {
         telemetry.addData("CELL point", "x %.1f  y %.1f", aim.targetX, aim.targetY);
     }
 
-    // D-pad up = far (back) CELL, down = audience CELL, left = back to automatic (half line).
+    // Far (back) CELL above the half line, audience CELL below it. (The D-pad now picks the shot preset.)
     private void updateHiveCellTarget(Pose pose) {
-        if (gamepad2.dpad_up)   cellOverride = true;
-        if (gamepad2.dpad_down) cellOverride = false;
-        if (gamepad2.dpad_left) cellOverride = null;
-        targetIsBackCell = cellOverride != null ? cellOverride : pose.y() >= FIELD_HALF_DIVIDER;
+        targetIsBackCell = pose.y() >= FIELD_HALF_DIVIDER;
     }
 
     private boolean turretReady() {
         return System.currentTimeMillis() - lastAngleChangeTime > TURRET_SETTLE_MS && flywheelAtSpeed;
     }
 
-    // Blends between the nearest measured distance/RPM points in the table.
+    // RPM from the driver's preset (a SHOT_TABLE row). D-pad up = next farther row, down = next closer row.
+    // To go back to odometry later: targetRPM = shotRpm(distance).
     private void updateShooterForDistance(double distance) {
-        double targetRPM = shotRpm(distance);
+        boolean dpad = gamepad2.dpad_up || gamepad2.dpad_down;
+        if (dpad && presetDpadReady) presetIndex = stepPreset(presetIndex, gamepad2.dpad_up ? 1 : -1);
+        presetDpadReady = !dpad;
+        double targetRPM = SHOT_TABLE[presetIndex][1];
+        telemetry.addData("Shot preset", "%.0f in, %.0f RPM (%d of %d, D-pad up/down)",
+                SHOT_TABLE[presetIndex][0], targetRPM, presetIndex + 1, SHOT_TABLE.length);
 
         double currentRPM = flywheelPID.rpm();
         flywheel.setPower(flywheelPID.pidf(targetRPM));
         flywheelAtSpeed = Math.abs(targetRPM - currentRPM) < FLYWHEEL_RPM_TOLERANCE;
 
         telemetry.addData("Flywheel RPM", "%.0f target, %.0f actual", targetRPM, currentRPM);
+    }
+
+    /** Index of the SHOT_TABLE row whose distance is closest to distanceIn. */
+    static int nearestShotRow(double distanceIn) {
+        int best = 0;
+        for (int i = 1; i < SHOT_TABLE.length; i++) {
+            if (Math.abs(SHOT_TABLE[i][0] - distanceIn) < Math.abs(SHOT_TABLE[best][0] - distanceIn)) best = i;
+        }
+        return best;
+    }
+
+    /** Moves the preset by step rows, staying inside the table. */
+    static int stepPreset(int index, int step) {
+        return Math.max(0, Math.min(SHOT_TABLE.length - 1, index + step));
     }
 
     /* ---------------- INTAKE HELPERS ---------------- */

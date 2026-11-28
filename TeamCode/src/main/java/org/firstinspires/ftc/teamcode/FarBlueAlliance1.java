@@ -24,7 +24,7 @@ import org.firstinspires.ftc.teamcode.pedro.Constants;
  *   Path 1  -> (87, 31)      flywheel shoots 2 s
  *   Path 2  -> (94.3, 10.2)  intake 3 s
  *   Path 3  -> (87, 31)      flywheel shoots 2 s
- *   Path 4  -> (139.8, 18.9) done
+ *   Path 4  -> (134, 18.9) done
  *
  * Order: wait 5 s (partner shoots first) -> flywheel revs up (robot waits) -> Path 1 -> shoot -> Path 2 -> intake -> Path 3 -> shoot -> Path 4.
  *
@@ -50,7 +50,7 @@ public class FarBlueAlliance1 extends OpMode {
     static final double P1_X = 87,    P1_Y = 31;
     static final double P2_X = 94.3,  P2_Y = 10.2;
     static final double P3_X = 87,    P3_Y = 31;
-    static final double P4_X = 139.8, P4_Y = 18.9;
+    static final double P4_X = 134,   P4_Y = 18.9;   // was 139.8: inside the blue wall, so the path never ended
 
     /* ---------------- WAIT AFTER EACH PATH (milliseconds) ---------------- */
     // Path 1 = shoot, Path 2 = intake, Path 3 = shoot, Path 4 = nothing.

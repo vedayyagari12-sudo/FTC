@@ -21,8 +21,10 @@ public class RobotConfig {
     // Where the robot is placed before INIT. The full auto and the park auto for the same spot share these.
     public static final double CLOSE_RED_START_X  = 61,  CLOSE_RED_START_Y  = 8,   CLOSE_RED_START_HEADING_DEG  = 90;
     public static final double CLOSE_BLUE_START_X = 83,  CLOSE_BLUE_START_Y = 136, CLOSE_BLUE_START_HEADING_DEG = 270;
-    public static final double FAR_RED_START_X    = 64,  FAR_RED_START_Y    = 142, FAR_RED_START_HEADING_DEG    = 270;
-    public static final double FAR_BLUE_START_X   = 80,  FAR_BLUE_START_Y   = 2,   FAR_BLUE_START_HEADING_DEG   = 90;
+    // Far starts: robot against the wall, so its center is half the robot length (9 in for an 18 in robot) out.
+    // Were 142 / 2, which put the center inside the wall and shifted the whole auto about 7 in.
+    public static final double FAR_RED_START_X    = 64,  FAR_RED_START_Y    = 135, FAR_RED_START_HEADING_DEG    = 270;
+    public static final double FAR_BLUE_START_X   = 80,  FAR_BLUE_START_Y   = 9,   FAR_BLUE_START_HEADING_DEG   = 90;
 
     // TeleOp start. Used when no auto ran before it (practice), or when USE_AUTO_END_POSE is false.
     public static final double TELEOP_START_X = 72, TELEOP_START_Y = 12, TELEOP_START_HEADING_DEG = 90; // TODO: match where you place the robot
