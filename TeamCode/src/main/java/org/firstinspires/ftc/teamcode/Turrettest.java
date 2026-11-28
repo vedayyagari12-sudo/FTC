@@ -22,7 +22,7 @@ import org.firstinspires.ftc.teamcode.pedro.Constants;
  *   Gamepad 2 right stick X: turn turret left / right
  *   Gamepad 2 left stick Y : (ramp - COMMENTED OUT for testing; search "RAMP COMMENTED OUT" to re-enable)
  *   Gamepad 2 A            : flywheel ON / OFF (toggle)
- *   Gamepad 2 X            : recenter turret and drop ramp to its lowest position
+ *   Gamepad 2 X            : recenter turret and drop ramp to its lowest position. Holding X also runs the intake in REVERSE.
  *   Gamepad 2 B            : intake motor ON / OFF (toggle)
  *   Gamepad 2 RIGHT TRIGGER: hold ALL the way down = feeding motor + intake on; release = feeding stops
  *   Gamepad 2 D-pad up/down: flywheel speed +5% / -5% (0 to 100% of FLYWHEEL_MAX_RPM). A still turns it on/off.
@@ -189,7 +189,9 @@ public class Turrettest extends OpMode {
         // Let go and the feeding motor stops; the intake goes back to whatever the B toggle says.
         boolean feeding = gamepad2.right_trigger > TRIGGER_THRESHOLD;
         feedingMotor.setPower(feeding ? FEED_POWER : 0);
-        intakeMotor.setPower((intakeOn || feeding) ? INTAKE_MOTOR_POWER : 0);
+        // Hold gamepad 2 X to run the intake backwards (X also recenters the turret and drops the ramp, as before).
+        boolean reverse = gamepad2.x;
+        intakeMotor.setPower(reverse ? -INTAKE_MOTOR_POWER : (intakeOn || feeding) ? INTAKE_MOTOR_POWER : 0);
 
         /* -------- TELEMETRY -------- */
         telemetry.addData("Turret pos", "%.3f (about %.0f deg from start, limit +/-%.0f)", turretPos,
@@ -198,7 +200,7 @@ public class Turrettest extends OpMode {
         //         Math.abs(rampPos - RAMP_MIN_POS) * SERVO_RANGE_DEG);
         telemetry.addData("Flywheel", flywheelOn ? "ON" : "OFF");
         telemetry.addData("Flywheel target", "%d%% = %.0f RPM", flywheelPercent, targetRpm);
-        telemetry.addData("Intake", (intakeOn || feeding) ? "ON" : "OFF");
+        telemetry.addData("Intake", reverse ? "REVERSE" : (intakeOn || feeding) ? "ON" : "OFF");
         telemetry.addData("Feeding motor", feeding ? "ON" : "OFF");
         telemetry.addData("Flywheel actual RPM", "%.0f", flywheelPIDF.rpm());
         telemetry.update();

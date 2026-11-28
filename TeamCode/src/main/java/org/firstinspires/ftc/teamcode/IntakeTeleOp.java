@@ -50,7 +50,7 @@ public class IntakeTeleOp extends OpMode {
 
         stopIntake();
 
-        telemetry.addLine("Initialized. B toggles intake, hold right trigger to feed.");
+        telemetry.addLine("Initialized. B toggles intake, hold X to reverse it, hold right trigger to feed.");
         telemetry.update();
     }
 
@@ -78,13 +78,16 @@ public class IntakeTeleOp extends OpMode {
             intakeToggleReady = false;
         }
 
-        if (intakeOn) runIntake();
-        else          stopIntake();
+        // Hold gamepad 2 X to run the intake backwards (overrides the toggle).
+        boolean reverse = gamepad2.x;
+        if (reverse)       runIntakeReverse();
+        else if (intakeOn) runIntake();
+        else               stopIntake();
 
         /* -------- FEED (gamepad2 right trigger, hold) -------- */
         FeedingMotor.setPower(gamepad2.right_trigger > 0.5 ? FEED_POWER : 0);
 
-        telemetry.addData("Intake", intakeOn ? "RUNNING" : "STOPPED");
+        telemetry.addData("Intake", reverse ? "REVERSE" : intakeOn ? "RUNNING" : "STOPPED");
         telemetry.update();
     }
 
@@ -92,6 +95,11 @@ public class IntakeTeleOp extends OpMode {
     private void runIntake() {
         IntakeMotor.setPower(INTAKE_MOTOR_POWER);
         IntakeServo.setPower(INTAKE_SERVO_POWER);
+    }
+
+    private void runIntakeReverse() {
+        IntakeMotor.setPower(-INTAKE_MOTOR_POWER);
+        IntakeServo.setPower(-INTAKE_SERVO_POWER);
     }
 
     private void stopIntake() {
