@@ -80,6 +80,7 @@ public class CloseBlueAlliance1 extends OpMode {
     private CRServo intakeServo;
     private DcMotor feedingMotor;
     private Servo turretServo;
+    private RampControl ramp; // flower ramp: down at the flower pose, up again after the intake
     private TurretAim.Result aim; // latest turret aim, shown in telemetry
 
     private enum State { REV_WAIT, DRIVING, WAITING, FLOWER_LEFT, FLOWER_FORWARD, INTAKE_WAIT, BACKUP, DONE }
@@ -125,6 +126,7 @@ public class CloseBlueAlliance1 extends OpMode {
 
         turretServo = hardwareMap.get(Servo.class, TURRET_SERVO_NAME);
         turretServo.setPosition(TurretAim.TURRET_CENTER);
+        ramp = new RampControl(hardwareMap); // does not move the ramp yet
 
         paths = new Path[] {
                 line(start, p1).linear(Math.toRadians(P1_START_DEG), Math.toRadians(P1_END_DEG)),
@@ -153,6 +155,7 @@ public class CloseBlueAlliance1 extends OpMode {
     @Override
     public void loop() {
         follower.update();
+        ramp.update();
         flywheel.setPower(flywheelPID.pidf(flywheelOn ? targetRpm : 0)); // every loop
         aimTurret();
 
@@ -179,6 +182,7 @@ public class CloseBlueAlliance1 extends OpMode {
                         intakeMotor.setPower(INTAKE_MOTOR_POWER);
                         intakeServo.setPower(INTAKE_SERVO_POWER);
                         intakeTimer.reset();
+                        ramp.lower(); // ramp to the floor for the flower
                         followRobotRelative(0, FLOWER_LEFT_IN, P2_END_DEG); // forward 0, left 2
                         state = State.FLOWER_LEFT;
                     } else {
@@ -216,6 +220,7 @@ public class CloseBlueAlliance1 extends OpMode {
             case INTAKE_WAIT:
                 // Keep intaking until INTAKE_MS total has passed since the intake turned on.
                 if (intakeTimer.milliseconds() >= INTAKE_MS) {
+                    ramp.raise(); // ramp back up
                     intakeMotor.setPower(0);
                     intakeServo.setPower(0);
                     step = 2;

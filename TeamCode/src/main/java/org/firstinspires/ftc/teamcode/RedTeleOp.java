@@ -16,6 +16,8 @@ import org.firstinspires.ftc.teamcode.pedro.Constants;
 @TeleOp(name = "Red TeleOp")
 public class RedTeleOp extends OpMode {
 
+    private RampControl ramp; // flower ramp: lowered to the floor at start (positions in RobotConfig)
+
     /* Hardware names, powers, flywheel numbers, shot table and start pose are in RobotConfig.java. */
     // No hood servo in the config. rampServo (Expansion Hub servo 0) is probably the hood, but its safe
     // positions are not measured yet (see Turrettest), so this TeleOp does not drive it.
@@ -95,6 +97,7 @@ public class RedTeleOp extends OpMode {
         Pose start = fromAuto ? autoEndPose : new Pose(TELEOP_START_X, TELEOP_START_Y, Math.toRadians(TELEOP_START_HEADING_DEG));
         autoEndPose = null;
         follower.setPose(start);
+        ramp = new RampControl(hardwareMap); // does not move the ramp yet
         telemetry.addData("Start pose", "%s: x %.1f  y %.1f  heading %.0f deg", fromAuto ? "from auto" : "default start",
                 start.x(), start.y(), Math.toDegrees(start.heading()));
 
@@ -105,6 +108,9 @@ public class RedTeleOp extends OpMode {
     /* ---------------- LOOP ---------------- */
     @Override
     public void loop() {
+        // Flower ramp: HOLD gamepad 2 left trigger to put it on the floor; let go and it goes back to its default (up) position.
+        if (gamepad2.left_trigger > RAMP_TRIGGER) ramp.lower(); else ramp.raise();
+        ramp.update();
 
         /* -------- MECANUM DRIVE (gamepad1) -------- */
         double y  = -gamepad1.left_stick_y;
@@ -121,7 +127,9 @@ public class RedTeleOp extends OpMode {
             intakeOn = !intakeOn;
             intakeToggleReady = false;
         }
-        if (intakeOn) runIntake(); else stopIntake();
+        if (gamepad2.x) reverseIntake();        // HOLD gamepad 2 X = run the intake backwards (clears a jam)
+        else if (intakeOn) runIntake();
+        else stopIntake();
 
         /* -------- AUTO / MANUAL TOGGLE (gamepad2 LB) -------- */
         if (!gamepad2.left_bumper) modeToggleReady = true;
@@ -143,7 +151,8 @@ public class RedTeleOp extends OpMode {
         telemetry.addData("Aim mode", manualMode ? "MANUAL" : "AUTO");
         telemetry.addData("Ready to fire", readyToFire);
 
-        telemetry.addData("Intake", intakeOn ? "RUNNING" : "STOPPED");
+        telemetry.addData("Intake", gamepad2.x ? "REVERSING" : (intakeOn ? "RUNNING" : "STOPPED"));
+        telemetry.addData("Ramp", ramp.status());
         telemetry.update();
     }
 
@@ -209,6 +218,11 @@ public class RedTeleOp extends OpMode {
     private void runIntake() {
         IntakeMotor.setPower(INTAKE_MOTOR_POWER);
         IntakeServo.setPower(INTAKE_SERVO_POWER);
+    }
+
+    private void reverseIntake() {
+        IntakeMotor.setPower(-INTAKE_MOTOR_POWER);
+        IntakeServo.setPower(-INTAKE_SERVO_POWER);
     }
 
     private void stopIntake() {

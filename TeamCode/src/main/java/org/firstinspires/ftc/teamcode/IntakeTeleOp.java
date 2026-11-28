@@ -78,13 +78,14 @@ public class IntakeTeleOp extends OpMode {
             intakeToggleReady = false;
         }
 
-        if (intakeOn) runIntake();
+        if (gamepad2.x) reverseIntake();   // HOLD gamepad 2 X = run the intake backwards
+        else if (intakeOn) runIntake();
         else          stopIntake();
 
         /* -------- FEED (gamepad2 right trigger, hold) -------- */
         FeedingMotor.setPower(gamepad2.right_trigger > 0.5 ? FEED_POWER : 0);
 
-        telemetry.addData("Intake", intakeOn ? "RUNNING" : "STOPPED");
+        telemetry.addData("Intake", gamepad2.x ? "REVERSING" : (intakeOn ? "RUNNING" : "STOPPED"));
         telemetry.update();
     }
 
@@ -92,6 +93,11 @@ public class IntakeTeleOp extends OpMode {
     private void runIntake() {
         IntakeMotor.setPower(INTAKE_MOTOR_POWER);
         IntakeServo.setPower(INTAKE_SERVO_POWER);
+    }
+
+    private void reverseIntake() {
+        IntakeMotor.setPower(-INTAKE_MOTOR_POWER);
+        IntakeServo.setPower(-INTAKE_SERVO_POWER);
     }
 
     private void stopIntake() {

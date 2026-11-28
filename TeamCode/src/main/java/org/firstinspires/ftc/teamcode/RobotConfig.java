@@ -45,9 +45,18 @@ public class RobotConfig {
     public static final String FLYWHEEL_NAME      = "flywheel";      // Expansion Hub motor 0
     public static final String INTAKE_MOTOR_NAME  = "intakemotor";   // Expansion Hub motor 1
     public static final String FEEDING_MOTOR_NAME = "feedingmotor";  // Expansion Hub motor 2
-    public static final String RAMP_SERVO_NAME    = "rampServo";     // Expansion Hub servo 0, standard Servo (not driven yet)
+    public static final String RAMP_SERVO_NAME    = "rampServo";     // Expansion Hub servo port 0, standard Servo, lowered by RampControl
     public static final String TURRET_SERVO_NAME  = "turretServo";   // Expansion Hub servo 1, standard Servo
     public static final String INTAKE_SERVO_NAME  = "Intakeservo";   // Control Hub servo 0, continuous rotation (capital I)
+
+    /* ===================== FLOWER RAMP (rampServo) ===================== */
+    // Two servos on one signal wire. It rests UP (default) at power-on. TeleOp: HOLD gamepad 2 left trigger to put it
+    // on the floor, let go and it goes back up. Autos: down at the flower intake pose, back up after the intake.
+    // TODO: measure both numbers with the "Ramp Test" TeleOp. While they are equal the code never moves the ramp.
+    public static final double RAMP_DOWN_POS = 0.62;  // floor. Positions use the WIDE 500-2500us pulse range (see RampControl), so this is about the old 0.63
+    public static final double RAMP_UP_POS   = 0.0;   // up position. Find it with Ramp Test: the highest value where the ramp still moves freely (not jammed)
+    public static final double RAMP_SPEED    = 1.0;   // how fast the ramp moves, in servo position units per second (bigger = faster)
+    public static final double RAMP_TRIGGER  = 0.5;   // left trigger must be pushed past this to lower the ramp
 
     /* ===================== POWERS (-1 to 1; flip the sign if a part runs backwards) ===================== */
     public static final double INTAKE_MOTOR_POWER = 1.0;   // same as Turrettest, which was flipped to this on the robot

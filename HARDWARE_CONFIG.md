@@ -16,12 +16,13 @@ The robot configuration that is active on the Driver Station, copied from the "A
 
 ## Expansion Hub 2
 
+
 | Kind | Port | Name | Type |
 |---|---|---|---|
 | Motor | 0 | `flywheel` | goBILDA 5202/3/4 series |
 | Motor | 1 | `intakemotor` | goBILDA 5202/3/4 series |
 | Motor | 2 | `feedingmotor` | goBILDA 5202/3/4 series |
-| Servo | 0 | `rampServo` | Servo |
+| Servo | 0 | `rampServo` | Servo (two servos on one wire) |
 | Servo | 1 | `turretServo` | Servo |
 
 ## USB
@@ -41,11 +42,11 @@ The robot configuration that is active on the Driver Station, copied from the "A
 | `feedingmotor` | the four full autos, `Turrettest`, `RedTeleOp`, `IntakeTeleOp` (right trigger) |
 | `turretServo` | the four full autos (`TurretAim`), `Turrettest`, `RedTeleOp` |
 | `Intakeservo` | the four full autos, `RedTeleOp`, `IntakeTeleOp` (runs with `intakemotor`) |
-| `rampServo` | `Turrettest` only, and commented out there. The autos and TeleOps leave it alone until its down/up positions are measured. |
+| `rampServo` | the four full autos (down at the flower, back up after the intake), `RedTeleOp` and `Turrettest` (hold gamepad 2 left trigger to lower). Moved by `RampControl.java`; positions `RAMP_UP_POS` / `RAMP_DOWN_POS` in `RobotConfig.java` (set both with the Ramp Test TeleOp; they stay equal, so nothing moves, until measured). |
 | `Webcam` | nothing (no camera is used) |
 | `imu` | nothing yet (heading comes from the Pinpoint) |
 
-Every OpMode in `TeamCode` now asks only for names in this config, and reads them from `RobotConfig.java` (the drive motors and `pinpoint` are also named in `pedro/Constants.java`). The older names (`intakeservo`, `intakeservo2`, `turretServo1`, `turretServo2`, `hoodServo`, `shootmotor`, `intakeservo3`, `Webcam 1`) are gone: the robot has one intake servo, one turret servo, no hood servo (the ramp is the likely replacement) and a feeding motor where the ram used to be.
+Every OpMode in `TeamCode` now asks only for names in this config, and reads them from `RobotConfig.java` (the drive motors and `pinpoint` are also named in `pedro/Constants.java`). The older names (`intakeservo`, `intakeservo2`, `turretServo1`, `turretServo2`, `hoodServo`, `shootmotor`, `intakeservo3`, `Webcam 1`) are gone: the robot has one intake servo, one turret servo, no hood servo (the flower ramp `rampServo` replaces it) and a feeding motor where the ram used to be.
 
 ## Photos
 

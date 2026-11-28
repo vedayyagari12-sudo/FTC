@@ -77,6 +77,7 @@ public class FarBlueAlliance1 extends OpMode {
     private CRServo intakeServo;
     private DcMotor feedingMotor;
     private Servo turretServo;
+    private RampControl ramp; // flower ramp: down at the flower pose, up again after the intake
     private TurretAim.Result aim; // latest turret aim, shown in telemetry
     private Path[] paths;
     private int step = 0;
@@ -118,6 +119,7 @@ public class FarBlueAlliance1 extends OpMode {
 
         turretServo = hardwareMap.get(Servo.class, TURRET_SERVO_NAME);
         turretServo.setPosition(TurretAim.TURRET_CENTER);
+        ramp = new RampControl(hardwareMap); // does not move the ramp yet
 
         paths = new Path[] {
                 line(start, p1).linear(Math.toRadians(START_HEADING_DEG), Math.toRadians(P1_HEADING_DEG)),
@@ -146,6 +148,7 @@ public class FarBlueAlliance1 extends OpMode {
     @Override
     public void loop() {
         follower.update();
+        ramp.update();
         flywheel.setPower(flywheelPID.pidf(flywheelOn ? targetRpm : 0)); // every loop
         aimTurret();
 
@@ -243,6 +246,7 @@ public class FarBlueAlliance1 extends OpMode {
         switch (pathIndex) {
             case 1: // intake
                 intakeMotor.setPower(INTAKE_MOTOR_POWER);
+                ramp.lower(); // ramp to the floor for the flower
                 intakeServo.setPower(INTAKE_SERVO_POWER);
                 break;
             case 0:
@@ -262,6 +266,7 @@ public class FarBlueAlliance1 extends OpMode {
                 break;
             case 1:
                 intakeMotor.setPower(0);
+                ramp.raise(); // ramp back up
                 intakeServo.setPower(0);
                 break;
             case 2: // second shot finished

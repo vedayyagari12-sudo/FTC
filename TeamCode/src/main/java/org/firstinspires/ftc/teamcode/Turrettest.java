@@ -22,7 +22,9 @@ import org.firstinspires.ftc.teamcode.pedro.Constants;
  *   Gamepad 2 right stick X: turn turret left / right
  *   Gamepad 2 left stick Y : (ramp - COMMENTED OUT for testing; search "RAMP COMMENTED OUT" to re-enable)
  *   Gamepad 2 A            : flywheel ON / OFF (toggle)
- *   Gamepad 2 X            : recenter turret and drop ramp to its lowest position
+ *   Gamepad 2 BACK         : recenter turret
+ *   Gamepad 2 X            : HOLD to run the intake backwards
+ *   Gamepad 2 LEFT TRIGGER : HOLD to lower the flower ramp (release = back up)
  *   Gamepad 2 B            : intake motor ON / OFF (toggle)
  *   Gamepad 2 RIGHT TRIGGER: hold ALL the way down = feeding motor + intake on; release = feeding stops
  *   Gamepad 2 D-pad up/down: flywheel speed +5% / -5% (0 to 100% of FLYWHEEL_MAX_RPM). A still turns it on/off.
@@ -70,6 +72,7 @@ public class Turrettest extends OpMode {
     Follower follower;
     Servo turretServo;
     // Servo rampServo;   // RAMP COMMENTED OUT FOR TESTING
+    RampControl ramp;     // lowers the flower ramp at start (see RampControl.java, positions in RobotConfig)
     DcMotorEx flywheel;
     FlywheelPIDF flywheelPIDF;
     DcMotor intakeMotor;
@@ -99,6 +102,7 @@ public class Turrettest extends OpMode {
         // rampServo.setDirection(Servo.Direction.FORWARD);   // RAMP COMMENTED OUT
         turretServo.setPosition(TURRET_CENTER);
         // rampServo.setPosition(RAMP_MIN_POS);   // RAMP COMMENTED OUT
+        ramp = new RampControl(hardwareMap); // does not move the ramp yet
 
         // Flywheel
         flywheel = hardwareMap.get(DcMotorEx.class, FLYWHEEL_NAME);
@@ -128,6 +132,9 @@ public class Turrettest extends OpMode {
 
     @Override
     public void loop() {
+        // Flower ramp: HOLD gamepad 2 left trigger to put it on the floor; let go and it goes back to its default (up) position.
+        if (gamepad2.left_trigger > RAMP_TRIGGER) ramp.lower(); else ramp.raise();
+        ramp.update();
         /* -------- DRIVE (gamepad1) -------- */
         double y  = -gamepad1.left_stick_y;
         double x  =  gamepad1.left_stick_x;
@@ -136,7 +143,7 @@ public class Turrettest extends OpMode {
         follower.update();
 
         /* -------- TURRET + RAMP -------- */
-        if (gamepad2.x) {
+        if (gamepad2.back) {
             turretPos = TURRET_CENTER;
             rampPos = RAMP_MIN_POS;
         } else {
@@ -189,7 +196,9 @@ public class Turrettest extends OpMode {
         // Let go and the feeding motor stops; the intake goes back to whatever the B toggle says.
         boolean feeding = gamepad2.right_trigger > TRIGGER_THRESHOLD;
         feedingMotor.setPower(feeding ? FEED_POWER : 0);
-        intakeMotor.setPower((intakeOn || feeding) ? INTAKE_MOTOR_POWER : 0);
+        // HOLD gamepad 2 X = run the intake backwards (clears a jam). Overrides everything else while held.
+        boolean reversing = gamepad2.x;
+        intakeMotor.setPower(reversing ? -INTAKE_MOTOR_POWER : ((intakeOn || feeding) ? INTAKE_MOTOR_POWER : 0));
 
         /* -------- TELEMETRY -------- */
         telemetry.addData("Turret pos", "%.3f (about %.0f deg from start, limit +/-%.0f)", turretPos,
@@ -198,7 +207,8 @@ public class Turrettest extends OpMode {
         //         Math.abs(rampPos - RAMP_MIN_POS) * SERVO_RANGE_DEG);
         telemetry.addData("Flywheel", flywheelOn ? "ON" : "OFF");
         telemetry.addData("Flywheel target", "%d%% = %.0f RPM", flywheelPercent, targetRpm);
-        telemetry.addData("Intake", (intakeOn || feeding) ? "ON" : "OFF");
+        telemetry.addData("Intake", reversing ? "REVERSING" : ((intakeOn || feeding) ? "ON" : "OFF"));
+        telemetry.addData("Ramp", ramp.status());
         telemetry.addData("Feeding motor", feeding ? "ON" : "OFF");
         telemetry.addData("Flywheel actual RPM", "%.0f", flywheelPIDF.rpm());
         telemetry.update();
