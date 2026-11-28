@@ -69,6 +69,7 @@ public class FarBlueAlliance1 extends OpMode {
     private Follower follower;
     private DcMotorEx flywheel;
     private FlywheelPIDF flywheelPID; // tuned PIDF, same controller as the TeleOps
+    private FlowerRamp ramp;         // flower ramp: down while the intake runs at the flower, up otherwise
     private boolean flywheelOn = false;
     private double targetRpm; // SHOT_TABLE RPM for the distance from the shooting spot to the CELL
     private double shotDistanceIn;
@@ -98,6 +99,7 @@ public class FarBlueAlliance1 extends OpMode {
         flywheel.setZeroPowerBehavior(DcMotor.ZeroPowerBehavior.FLOAT);
         flywheel.setPower(0);
         flywheelPID = new FlywheelPIDF(flywheel);
+        ramp = new FlowerRamp(hardwareMap); // does not move the servo until the first lower()
         // Pedro drives to the shooting spot by odometry; rev to the RPM for that spot's distance to the CELL.
         shotDistanceIn = TurretAim.aim(P1_X, P1_Y, Math.toRadians(P1_HEADING_DEG), ALLIANCE).distanceIn;
         targetRpm = shotRpm(shotDistanceIn);
@@ -143,6 +145,7 @@ public class FarBlueAlliance1 extends OpMode {
     public void loop() {
         follower.update();
         flywheel.setPower(flywheelPID.pidf(flywheelOn ? targetRpm : 0)); // every loop
+        ramp.update(); // every loop
         updateAim();
 
         switch (state) {
@@ -238,6 +241,7 @@ public class FarBlueAlliance1 extends OpMode {
             case 1: // intake
                 intakeMotor.setPower(INTAKE_MOTOR_POWER);
                 intakeServo.setPower(INTAKE_SERVO_POWER);
+                ramp.lower();
                 break;
             case 0:
             case 2: // shoot: flywheel is already running, so feed the balls in
@@ -257,6 +261,7 @@ public class FarBlueAlliance1 extends OpMode {
             case 1:
                 intakeMotor.setPower(0);
                 intakeServo.setPower(0);
+                ramp.raise();
                 break;
             case 2: // second shot finished
                 flywheelOn = false;

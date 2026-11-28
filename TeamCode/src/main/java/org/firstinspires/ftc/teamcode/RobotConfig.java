@@ -47,7 +47,7 @@ public class RobotConfig {
     public static final String FLYWHEEL_NAME      = "flywheel";      // Expansion Hub motor 0
     public static final String INTAKE_MOTOR_NAME  = "intakemotor";   // Expansion Hub motor 1
     public static final String FEEDING_MOTOR_NAME = "feedingmotor";  // Expansion Hub motor 2
-    public static final String RAMP_SERVO_NAME    = "rampServo";     // Expansion Hub servo 0, standard Servo (not driven yet)
+    public static final String RAMP_SERVO_NAME    = "rampServo";     // Expansion Hub servo 0; FlowerRamp.java drives it (it keeps its own SERVO_NAME)
     public static final String TURRET_SERVO_NAME  = "turretServo";   // Expansion Hub servo 1; turret removed, only Turrettest still asks for it
     public static final String INTAKE_SERVO_NAME  = "Intakeservo";   // Control Hub servo 0, continuous rotation (capital I)
 
@@ -64,10 +64,12 @@ public class RobotConfig {
     public static final double REV_MIN_MS     = 800;
     public static final double REV_TIMEOUT_MS = 3000;
     // FlywheelPIDF gains (Red/Blue TeleOp, Turret Test and the four autos). F = power per target RPM, about 1 / max RPM.
-    // Tuned 2026-11-25 with the Flywheel Tuner Data TeleOp + flywheel-pidf-tuner.html:
-    // measured K = 5261 RPM at full power, tau = 0.81 s, noise +/-32 RPM, loop 6 ms, ball dip 70 RPM at 2599 RPM.
-    public static final double FLYWHEEL_P = 0.00135, FLYWHEEL_I = 0.0000833, FLYWHEEL_D = 0;
-    public static final double FLYWHEEL_F = 0.00019;
+    // Retuned 2026-11-28 for the fixed undershooter, from flywheel-pidf-tuner.html with recovery time lambda = 0.1 s.
+    // These gains imply K = 1 / kF = about 5495 RPM at full power and tau = about 2.0 s (spin-up is slower than the
+    // turret-era flywheel). Rerun Flywheel Tuner Data and the tuner after any flywheel change.
+    // (Nov 25, turret-era flywheel: P 0.00135, I 0.0000833, D 0, F 0.00019 from K 5261 RPM, tau 0.81 s.)
+    public static final double FLYWHEEL_P = 0.00346, FLYWHEEL_I = 0.0000865, FLYWHEEL_D = 0;
+    public static final double FLYWHEEL_F = 0.000182;
     public static final double FLYWHEEL_MAX_RPM = 6000; // TODO confirm: free speed of the flywheel motor (6000 for a bare goBILDA 5203)
     // TeleOp shot table: {flat distance from the flywheel shaft to the CELL opening in inches, flywheel RPM,
     // ramp/hood position (unused for now)}. Distances in between are blended; past the first or last row the
