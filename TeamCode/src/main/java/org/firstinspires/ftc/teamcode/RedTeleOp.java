@@ -7,6 +7,8 @@ import com.qualcomm.robotcore.eventloop.opmode.TeleOp;
 import com.qualcomm.robotcore.hardware.CRServo;
 import com.qualcomm.robotcore.hardware.DcMotor;
 import com.qualcomm.robotcore.hardware.DcMotorEx;
+import com.qualcomm.robotcore.hardware.Servo;
+import com.qualcomm.robotcore.util.Range;
 import com.pedropathing.follower.Follower;
 import com.pedropathing.math.Pose;
 import org.firstinspires.ftc.teamcode.pedro.Constants;
@@ -23,7 +25,8 @@ import org.firstinspires.ftc.teamcode.pedro.Constants;
  *   Gamepad 2 D-pad right/left: flywheel speed +1% / -1%
  *   Gamepad 2 B             : intake ON / OFF (toggle)
  *   Gamepad 2 RIGHT TRIGGER : hold ALL the way down = feeding motor + intake on (shoot)
- *   Free for the ramp       : gamepad 2 X, Y, bumpers, left trigger, sticks
+ *   Gamepad 2 left stick Y  : move the ramp (same code and limits as Turret Test: Turrettest.RAMP_*)
+ *   Gamepad 2 X             : drop the ramp to its lowest position
  *
  * Odometry still runs: telemetry shows the robot pose and its distance to the CELL for checking against a tape.
  * Hardware names, powers, PIDF gains and the start pose are in RobotConfig.java.
@@ -42,6 +45,7 @@ public class RedTeleOp extends OpMode {
     CRServo IntakeServo;
     DcMotorEx flywheel;
     DcMotor feedingMotor;
+    Servo rampServo;
     Follower follower;
     FlywheelPIDF flywheelPID; // same controller as Turret Test; gains FLYWHEEL_P/I/D/F in RobotConfig
 
@@ -55,6 +59,7 @@ public class RedTeleOp extends OpMode {
     boolean flywheelToggleReady = true;
     int flywheelPercent = START_PERCENT;
     boolean dpadReady = true;
+    double rampPos = Turrettest.RAMP_MIN_POS;
 
     /* ---------------- INIT ---------------- */
     @Override
@@ -78,6 +83,11 @@ public class RedTeleOp extends OpMode {
         feedingMotor.setMode(DcMotor.RunMode.RUN_WITHOUT_ENCODER);
         feedingMotor.setZeroPowerBehavior(DcMotor.ZeroPowerBehavior.BRAKE);
         feedingMotor.setPower(0);
+
+        // Ramp: same setup as Turret Test.
+        rampServo = hardwareMap.get(Servo.class, RAMP_SERVO_NAME);
+        rampServo.setDirection(Servo.Direction.FORWARD);
+        rampServo.setPosition(Turrettest.RAMP_MIN_POS);
 
         follower = Constants.create(hardwareMap); // Pedro 3
         // Start where the auto ended (if one just ran), otherwise at TELEOP_START_*. Clear it so a second
@@ -138,6 +148,18 @@ public class RedTeleOp extends OpMode {
         feedingMotor.setPower(feeding ? FEED_POWER : 0);
         if (intakeOn || feeding) runIntake(); else stopIntake();
 
+        /* -------- RAMP (gamepad2 left stick Y moves it, X drops it): same as Turret Test -------- */
+        if (gamepad2.x) {
+            rampPos = Turrettest.RAMP_MIN_POS;
+        } else {
+            double lift = Math.abs(gamepad2.left_stick_y) > STICK_DEADZONE ? -gamepad2.left_stick_y : 0;
+            rampPos = rampPos + lift * Turrettest.RAMP_RATE;
+        }
+        // Hard clamp so the ramp can never be commanded past the 40 degree limit
+        rampPos = Range.clip(rampPos, Math.min(Turrettest.RAMP_MIN_POS, Turrettest.RAMP_MAX_POS),
+                Math.max(Turrettest.RAMP_MIN_POS, Turrettest.RAMP_MAX_POS));
+        rampServo.setPosition(rampPos);
+
         /* -------- TELEMETRY -------- */
         Pose pose = follower.pose();
         TurretAim.Result aim = TurretAim.aim(pose.x(), pose.y(), pose.heading(), alliance());
@@ -146,6 +168,8 @@ public class RedTeleOp extends OpMode {
                 atSpeed ? "  AT SPEED" : "");
         telemetry.addData("Intake", (intakeOn || feeding) ? "ON" : "OFF");
         telemetry.addData("Feeding motor", feeding ? "ON" : "OFF");
+        telemetry.addData("Ramp pos", "%.3f (about %.0f deg of travel)", rampPos,
+                Math.abs(rampPos - Turrettest.RAMP_MIN_POS) * Turrettest.SERVO_RANGE_DEG);
         // For checking odometry against a tape measure; the RPM does not use it.
         telemetry.addData("Distance", "%.1f in (flywheel shaft to %s CELL)", aim.distanceIn, aim.targetFar ? "far" : "audience");
         telemetry.addData("Robot pose", "x %.1f  y %.1f  heading %.0f deg", pose.x(), pose.y(), Math.toDegrees(pose.heading()));
