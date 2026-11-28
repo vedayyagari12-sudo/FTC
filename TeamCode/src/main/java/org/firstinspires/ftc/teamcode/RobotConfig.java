@@ -48,7 +48,7 @@ public class RobotConfig {
     public static final String INTAKE_MOTOR_NAME  = "intakemotor";   // Expansion Hub motor 1
     public static final String FEEDING_MOTOR_NAME = "feedingmotor";  // Expansion Hub motor 2
     public static final String RAMP_SERVO_NAME    = "rampServo";     // Expansion Hub servo 0, standard Servo (not driven yet)
-    public static final String TURRET_SERVO_NAME  = "turretServo";   // Expansion Hub servo 1, standard Servo
+    public static final String TURRET_SERVO_NAME  = "turretServo";   // Expansion Hub servo 1; turret removed, only Turrettest still asks for it
     public static final String INTAKE_SERVO_NAME  = "Intakeservo";   // Control Hub servo 0, continuous rotation (capital I)
 
     /* ===================== POWERS (-1 to 1; flip the sign if a part runs backwards) ===================== */
@@ -63,7 +63,7 @@ public class RobotConfig {
     // Autos wait for the flywheel before Path 1: at least REV_MIN_MS, at most REV_TIMEOUT_MS.
     public static final double REV_MIN_MS     = 800;
     public static final double REV_TIMEOUT_MS = 3000;
-    // FlywheelPIDF gains (Red/Blue TeleOp and Turret Test). F = power per target RPM, about 1 / max RPM.
+    // FlywheelPIDF gains (Red/Blue TeleOp, Turret Test and the four autos). F = power per target RPM, about 1 / max RPM.
     // Tuned 2026-11-25 with the Flywheel Tuner Data TeleOp + flywheel-pidf-tuner.html:
     // measured K = 5261 RPM at full power, tau = 0.81 s, noise +/-32 RPM, loop 6 ms, ball dip 70 RPM at 2599 RPM.
     public static final double FLYWHEEL_P = 0.00135, FLYWHEEL_I = 0.0000833, FLYWHEEL_D = 0;
@@ -72,8 +72,8 @@ public class RobotConfig {
     // TeleOp shot table: {flat distance from the flywheel shaft to the CELL opening in inches, flywheel RPM,
     // ramp/hood position (unused for now)}. Distances in between are blended; past the first or last row the
     // TeleOp holds that row's RPM. Fill it from shot-table.html (~/Desktop/BioBuzz-Turret).
-    // TeleOps and autos both pick their RPM here from the odometry distance (shotRpm below). With only one row the
-    // answer is that row's RPM at every distance; each tested row added makes the RPM follow distance.
+    // The autos pick their RPM here from their shooting spot's distance (shotRpm below). The TeleOps use the driver's
+    // D-pad percent instead, like Turret Test. With only one row every distance gets that row's RPM.
     public static final double[][] SHOT_TABLE = {
         {32, 2700, 0},  // tested 2026-11-25: flywheel shaft to CELL opening 32 in, 45% in Turret Test, shots consistent
     };

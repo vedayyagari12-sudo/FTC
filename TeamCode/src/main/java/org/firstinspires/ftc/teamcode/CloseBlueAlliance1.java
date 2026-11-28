@@ -11,7 +11,6 @@ import com.qualcomm.robotcore.eventloop.opmode.OpMode;
 import com.qualcomm.robotcore.hardware.CRServo;
 import com.qualcomm.robotcore.hardware.DcMotor;
 import com.qualcomm.robotcore.hardware.DcMotorEx;
-import com.qualcomm.robotcore.hardware.Servo;
 import com.qualcomm.robotcore.util.ElapsedTime;
 
 import org.firstinspires.ftc.teamcode.pedro.Constants;
@@ -69,7 +68,7 @@ public class CloseBlueAlliance1 extends OpMode {
     static final double BACKUP_IN = 3;          // at the very end
 
     /* ---------------- MECHANISMS (names, powers and flywheel numbers are in RobotConfig.java) ---------------- */
-    static final int ALLIANCE = TurretAim.BLUE;           // which HIVE the turret aims at
+    static final int ALLIANCE = TurretAim.BLUE;           // which HIVE the robot shoots at
 
     private DcMotorEx flywheel;
     private FlywheelPIDF flywheelPID; // tuned PIDF, same controller as the TeleOps
@@ -79,8 +78,7 @@ public class CloseBlueAlliance1 extends OpMode {
     private DcMotor intakeMotor;
     private CRServo intakeServo;
     private DcMotor feedingMotor;
-    private Servo turretServo;
-    private TurretAim.Result aim; // latest turret aim, shown in telemetry
+    private TurretAim.Result aim; // latest distance to the CELL, shown in telemetry
 
     private enum State { REV_WAIT, DRIVING, WAITING, FLOWER_LEFT, FLOWER_FORWARD, INTAKE_WAIT, BACKUP, DONE }
 
@@ -123,8 +121,6 @@ public class CloseBlueAlliance1 extends OpMode {
 
         follower.setPose(start);
 
-        turretServo = hardwareMap.get(Servo.class, TURRET_SERVO_NAME);
-        turretServo.setPosition(TurretAim.TURRET_CENTER);
 
         paths = new Path[] {
                 line(start, p1).linear(Math.toRadians(P1_START_DEG), Math.toRadians(P1_END_DEG)),
@@ -142,7 +138,7 @@ public class CloseBlueAlliance1 extends OpMode {
     public void start() {
         follower.setPose(new Pose(START_X, START_Y, Math.toRadians(START_HEADING_DEG)));
         follower.update();
-        aimTurret();
+        updateAim();
         step = 0;
         // Spin the flywheel up FIRST and wait for it before driving Path 1.
         startFlywheel();
@@ -154,7 +150,7 @@ public class CloseBlueAlliance1 extends OpMode {
     public void loop() {
         follower.update();
         flywheel.setPower(flywheelPID.pidf(flywheelOn ? targetRpm : 0)); // every loop
-        aimTurret();
+        updateAim();
 
         switch (state) {
             case REV_WAIT: {
@@ -237,8 +233,7 @@ public class CloseBlueAlliance1 extends OpMode {
 
         Pose pose = follower.pose();
         telemetry.addData("State", state);
-        telemetry.addData("Turret", "%.1f deg, servo %.3f, %.1f in to the %s CELL%s", aim.turretDeg, aim.servoPos, aim.distanceIn,
-                aim.targetFar ? "far" : "audience", aim.outOfRange ? " (OUT OF RANGE)" : "");
+        telemetry.addData("Distance", "%.1f in to the %s CELL", aim.distanceIn, aim.targetFar ? "far" : "audience");
         telemetry.addData("Flywheel RPM", "%.0f (target %.0f for %.1f in)", flywheelRpm(), targetRpm, shotDistanceIn);
         telemetry.addData("Pose", "x %.1f  y %.1f  heading %.0f deg", pose.x(), pose.y(), Math.toDegrees(pose.heading()));
         telemetry.update();
@@ -258,11 +253,10 @@ public class CloseBlueAlliance1 extends OpMode {
         follower.follow(line(from, to).constant(h));
     }
 
-    /** Points the turret at the HIVE CELL for where the robot is right now (see TurretAim.java). */
-    private void aimTurret() {
+    /** Distance to the HIVE CELL from where the robot is right now (see TurretAim.java). The shooter is fixed; no turret. */
+    private void updateAim() {
         Pose p = follower.pose();
         aim = TurretAim.aim(p.x(), p.y(), p.heading(), ALLIANCE);
-        turretServo.setPosition(aim.servoPos);
     }
 
     private double flywheelRpm() {
