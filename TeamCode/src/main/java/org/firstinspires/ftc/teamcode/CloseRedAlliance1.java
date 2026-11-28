@@ -20,7 +20,7 @@ import org.firstinspires.ftc.teamcode.pedro.Constants;
  *
  * Path (field coordinates in inches, headings in degrees):
  *   Start   (61, 8)  heading 90
- *   Path 1  -> (61, 34)   heading 90 -> 90   flywheel SHOT_TABLE RPM for 2 s
+ *   Path 1  -> (61, 34)   heading 90 -> 90   flywheel AUTO_FLYWHEEL_RPM for 2 s
  *   Path 2  -> (11, 75.8)   heading 90 -> 180     intake for 3 s
  *   Path 3  -> (10, 134) heading 180 -> 0     wait 200 ms after
  *   Then backs up 3 in.
@@ -74,7 +74,7 @@ public class CloseRedAlliance1 extends OpMode {
     private FlywheelPIDF flywheelPID; // tuned PIDF, same controller as the TeleOps
     private FlowerRamp ramp;         // flower ramp: down while the intake runs at the flower, up otherwise
     private boolean flywheelOn = false;
-    private double targetRpm; // SHOT_TABLE RPM for the distance from the shooting spot to the CELL
+    private double targetRpm; // AUTO_FLYWHEEL_RPM (RobotConfig)
     private double shotDistanceIn;
     private DcMotor intakeMotor;
     private CRServo intakeServo;
@@ -107,9 +107,9 @@ public class CloseRedAlliance1 extends OpMode {
         flywheel.setPower(0);
         flywheelPID = new FlywheelPIDF(flywheel);
         ramp = new FlowerRamp(hardwareMap); // does not move the servo until the first lower()
-        // Pedro drives to the shooting spot by odometry; rev to the RPM for that spot's distance to the CELL.
+        // The autos shoot at AUTO_FLYWHEEL_RPM; the distance from the shooting spot to the CELL is only shown in telemetry.
         shotDistanceIn = TurretAim.aim(P1_X, P1_Y, Math.toRadians(P1_END_DEG), ALLIANCE).distanceIn;
-        targetRpm = shotRpm(shotDistanceIn);
+        targetRpm = AUTO_FLYWHEEL_RPM;
         intakeMotor = hardwareMap.dcMotor.get(INTAKE_MOTOR_NAME);
         intakeMotor.setMode(DcMotor.RunMode.RUN_WITHOUT_ENCODER);
         intakeMotor.setZeroPowerBehavior(DcMotor.ZeroPowerBehavior.BRAKE);
@@ -167,7 +167,8 @@ public class CloseRedAlliance1 extends OpMode {
             }
 
             case DRIVING:
-                if (follower.atParametricEnd()) {
+                if (step == 1) rampEvent(); // heading to the flower: lower the ramp so it lands right before the intake starts
+                if (follower.atParametricEnd() && (step != 1 || FlowerRampTiming.ready(ramp))) {
                     waitTimer.reset();
                     if (step == 0) {
                         // Path 1 done: flywheel is already at speed. Feed the balls in for FLYWHEEL_MS.
@@ -262,6 +263,11 @@ public class CloseRedAlliance1 extends OpMode {
     private void updateAim() {
         Pose p = follower.pose();
         aim = TurretAim.aim(p.x(), p.y(), p.heading(), ALLIANCE);
+    }
+
+    /** Every loop while driving to the flower: start the ramp down in time to be on the floor just before the intake. */
+    private void rampEvent() {
+        if (FlowerRampTiming.shouldLower(follower.remainingDistance(), follower.tangentialVelocity())) ramp.lower();
     }
 
     private double flywheelRpm() {

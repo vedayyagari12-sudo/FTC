@@ -22,6 +22,7 @@ import org.firstinspires.ftc.teamcode.pedro.Constants;
  *   Gamepad 2 D-pad up/down : flywheel speed +5% / -5% (percent of FLYWHEEL_MAX_RPM, held by FlywheelPIDF)
  *   Gamepad 2 D-pad right/left: flywheel speed +1% / -1%
  *   Gamepad 2 B             : intake ON / OFF (toggle)
+ *   Gamepad 2 X (hold)      : run the intake in REVERSE while held
  *   Gamepad 2 RIGHT TRIGGER : hold ALL the way down = feeding motor + intake on (shoot)
  *   Gamepad 2 LEFT TRIGGER  : hold = lower the flower ramp to the floor, let go = raise it (see FlowerRamp.java)
  *
@@ -139,7 +140,9 @@ public class RedTeleOp extends OpMode {
         // Same as Turret Test: trigger all the way down runs the feeding motor AND the intake.
         boolean feeding = gamepad2.right_trigger > TRIGGER_THRESHOLD;
         feedingMotor.setPower(feeding ? FEED_POWER : 0);
-        if (intakeOn || feeding) runIntake(); else stopIntake();
+        // Hold gamepad 2 X to run the intake backwards (spit out / clear a jam). It overrides the toggle and the trigger.
+        boolean reverse = gamepad2.x;
+        if (reverse) runIntakeReverse(); else if (intakeOn || feeding) runIntake(); else stopIntake();
 
         /* -------- FLOWER RAMP (gamepad2 left trigger: hold = down, let go = up) -------- */
         if (gamepad2.left_trigger > FlowerRamp.TRIGGER) ramp.lower(); else ramp.raise();
@@ -151,7 +154,7 @@ public class RedTeleOp extends OpMode {
         telemetry.addData("Flywheel", flywheelOn ? "ON" : "OFF");
         telemetry.addData("Flywheel speed", "%d%% = %.0f RPM target, %.0f actual%s", flywheelPercent, targetRpm, currentRpm,
                 atSpeed ? "  AT SPEED" : "");
-        telemetry.addData("Intake", (intakeOn || feeding) ? "ON" : "OFF");
+        telemetry.addData("Intake", reverse ? "REVERSE" : (intakeOn || feeding) ? "ON" : "OFF");
         telemetry.addData("Feeding motor", feeding ? "ON" : "OFF");
         telemetry.addData("Ramp", ramp.status());
         // For checking odometry against a tape measure; the RPM does not use it.
@@ -164,6 +167,11 @@ public class RedTeleOp extends OpMode {
     private void runIntake() {
         IntakeMotor.setPower(INTAKE_MOTOR_POWER);
         IntakeServo.setPower(INTAKE_SERVO_POWER);
+    }
+
+    private void runIntakeReverse() {
+        IntakeMotor.setPower(-INTAKE_MOTOR_POWER);
+        IntakeServo.setPower(-INTAKE_SERVO_POWER);
     }
 
     private void stopIntake() {

@@ -60,6 +60,7 @@ public class RobotConfig {
     public static final double FLYWHEEL_DIRECTION     = -1.0;  // the flywheel shoots with NEGATIVE power on this robot
     public static final double FLYWHEEL_TICKS_PER_REV = 28.0;  // TODO confirm: encoder ticks per flywheel turn (bare goBILDA motor = 28)
     public static final double FLYWHEEL_RPM_TOLERANCE = 100;   // "at speed" = within this many RPM of the target
+    public static final double AUTO_FLYWHEEL_RPM      = 2350;  // RPM all four autos shoot at (held by FlywheelPIDF)
     // Autos wait for the flywheel before Path 1: at least REV_MIN_MS, at most REV_TIMEOUT_MS.
     public static final double REV_MIN_MS     = 800;
     public static final double REV_TIMEOUT_MS = 3000;
@@ -74,8 +75,8 @@ public class RobotConfig {
     // TeleOp shot table: {flat distance from the flywheel shaft to the CELL opening in inches, flywheel RPM,
     // ramp/hood position (unused for now)}. Distances in between are blended; past the first or last row the
     // TeleOp holds that row's RPM. Fill it from shot-table.html (~/Desktop/BioBuzz-Turret).
-    // The autos pick their RPM here from their shooting spot's distance (shotRpm below). The TeleOps use the driver's
-    // D-pad percent instead, like Turret Test. With only one row every distance gets that row's RPM.
+    // Not used by the OpModes right now: the autos shoot at AUTO_FLYWHEEL_RPM and the TeleOps use the driver's D-pad
+    // percent, like Turret Test. Kept for shotRpm() (an odometry distance lookup) once odometry is trusted.
     public static final double[][] SHOT_TABLE = {
         {32, 2700, 0},  // tested 2026-11-25: flywheel shaft to CELL opening 32 in, 45% in Turret Test, shots consistent
     };
