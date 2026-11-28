@@ -53,7 +53,7 @@ public class RobotConfig {
     // Two servos on one signal wire. It rests UP (default) at power-on. TeleOp: HOLD gamepad 2 left trigger to put it
     // on the floor, let go and it goes back up. Autos: down at the flower intake pose, back up after the intake.
     // TODO: measure both numbers with the "Ramp Test" TeleOp. While they are equal the code never moves the ramp.
-    public static final double RAMP_DOWN_POS = 0.62;  // floor. Positions use the WIDE 500-2500us pulse range (see RampControl), so this is about the old 0.63
+    public static final double RAMP_DOWN_POS = 0.583; // floor. Positions use the WIDE 500-2500us pulse range (see RampControl), so this is about the old 0.63
     public static final double RAMP_UP_POS   = 0.0;   // up position. Find it with Ramp Test: the highest value where the ramp still moves freely (not jammed)
     public static final double RAMP_SPEED    = 1.0;   // how fast the ramp moves, in servo position units per second (bigger = faster)
     public static final double RAMP_TRIGGER  = 0.5;   // left trigger must be pushed past this to lower the ramp
