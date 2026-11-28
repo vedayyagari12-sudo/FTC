@@ -72,6 +72,7 @@ public class CloseBlueAlliance1 extends OpMode {
 
     private DcMotorEx flywheel;
     private FlywheelPIDF flywheelPID; // tuned PIDF, same controller as the TeleOps
+    private FlowerRamp ramp;         // flower ramp: down while the intake runs at the flower, up otherwise
     private boolean flywheelOn = false;
     private double targetRpm; // SHOT_TABLE RPM for the distance from the shooting spot to the CELL
     private double shotDistanceIn;
@@ -105,6 +106,7 @@ public class CloseBlueAlliance1 extends OpMode {
         flywheel.setZeroPowerBehavior(DcMotor.ZeroPowerBehavior.FLOAT);
         flywheel.setPower(0);
         flywheelPID = new FlywheelPIDF(flywheel);
+        ramp = new FlowerRamp(hardwareMap); // does not move the servo until the first lower()
         // Pedro drives to the shooting spot by odometry; rev to the RPM for that spot's distance to the CELL.
         shotDistanceIn = TurretAim.aim(P1_X, P1_Y, Math.toRadians(P1_END_DEG), ALLIANCE).distanceIn;
         targetRpm = shotRpm(shotDistanceIn);
@@ -150,6 +152,7 @@ public class CloseBlueAlliance1 extends OpMode {
     public void loop() {
         follower.update();
         flywheel.setPower(flywheelPID.pidf(flywheelOn ? targetRpm : 0)); // every loop
+        ramp.update(); // every loop
         updateAim();
 
         switch (state) {
@@ -174,6 +177,7 @@ public class CloseBlueAlliance1 extends OpMode {
                         // At the flower: intake on, move left then forward while intaking.
                         intakeMotor.setPower(INTAKE_MOTOR_POWER);
                         intakeServo.setPower(INTAKE_SERVO_POWER);
+                        ramp.lower();
                         intakeTimer.reset();
                         followRobotRelative(0, FLOWER_LEFT_IN, P2_END_DEG); // forward 0, left 2
                         state = State.FLOWER_LEFT;
@@ -214,6 +218,7 @@ public class CloseBlueAlliance1 extends OpMode {
                 if (intakeTimer.milliseconds() >= INTAKE_MS) {
                     intakeMotor.setPower(0);
                     intakeServo.setPower(0);
+                    ramp.raise();
                     step = 2;
                     follower.follow(paths[2]);
                     state = State.DRIVING;
