@@ -12,10 +12,9 @@ public class FlowerRampTiming {
     static final double MARGIN_S = 0.1;    // finish this long before the robot arrives
     static final double MIN_LEAD_IN = 12;  // always lower within this many inches of the flower, even if the speed reads low near the end
 
-    /** Seconds the ramp needs to go from up to the floor and back off to the hover spot (FlowerRamp moves SPEED units per second). */
+    /** Seconds the ramp needs to go from up to the floor (FlowerRamp moves SPEED position units per second). */
     static double lowerSeconds() {
-        double travel = Math.abs(FlowerRamp.DOWN_POS - FlowerRamp.UP_POS);
-        return (travel + Math.min(FlowerRamp.HOVER_POS, travel)) / FlowerRamp.SPEED;
+        return Math.abs(FlowerRamp.DOWN_POS - FlowerRamp.UP_POS) / FlowerRamp.SPEED;
     }
 
     /** True once the robot is close enough to the flower that the ramp must start down now. */
@@ -24,7 +23,7 @@ public class FlowerRampTiming {
         return remainingIn <= Math.max(leadIn, MIN_LEAD_IN);
     }
 
-    /** True when the ramp has touched the floor and settled at the hover spot, or the positions are not set up (nothing to wait for). */
+    /** True when the ramp is on the floor, or when the ramp positions are not set up (nothing to wait for). */
     static boolean ready(FlowerRamp ramp) {
         return FlowerRamp.UP_POS == FlowerRamp.DOWN_POS || ramp.isDown();
     }

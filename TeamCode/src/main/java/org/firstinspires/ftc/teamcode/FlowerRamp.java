@@ -36,9 +36,6 @@ public class FlowerRamp {
     public static final String SERVO_NAME = "rampServo";
     public static final double DOWN_POS   = 0.583; // on the floor
     public static final double UP_POS     = 0.0;   // default up position (highest spot where it still moves freely)
-    // After touching the floor the ramp backs off by this much (toward UP_POS) and rides there, about 1 in above the ground.
-    // TODO tune: roughly DOWN_POS / (inches the ramp tip is above the floor at UP_POS). 10 in up -> 0.058. Raise it to ride higher.
-    public static final double HOVER_POS  = 0.06;
     public static final double SPEED      = 1.0;   // servo position units per second (bigger = faster)
     public static final double TRIGGER    = 0.5;   // left trigger must be pushed past this to lower the ramp
 
@@ -47,7 +44,6 @@ public class FlowerRamp {
     private double pos = UP_POS;     // where we think the ramp is (no sensor: it rests UP at power-on)
     private double target = UP_POS;
     private boolean active = false;  // true after the first lower(); before that the servo is never commanded
-    private boolean lowering = false; // true from lower() until raise(): down to the floor, then back off to the hover spot
     private double lastMs = 0;
 
     public FlowerRamp(HardwareMap hardwareMap) {
@@ -56,19 +52,15 @@ public class FlowerRamp {
         // Not commanded here on purpose, so the ramp doesn't jump at INIT.
     }
 
-    /** Go all the way down to the floor, then back up a little to the hover spot. Safe to call every loop. */
+    /** Go to the floor. Safe to call every loop. */
     public void lower() {
         if (UP_POS == DOWN_POS) return; // positions not measured yet
-        if (!lowering) { // only the first call starts the move, so calling it every loop does not restart it
-            lowering = true;
-            target = DOWN_POS;
-        }
+        target = DOWN_POS;
         active = true;
     }
 
     /** Go back up. Safe to call every loop. Does nothing if the ramp never went down. */
     public void raise() {
-        lowering = false;
         target = UP_POS;
     }
 
@@ -83,24 +75,15 @@ public class FlowerRamp {
         else if (pos > target) pos = Math.max(target, pos - step);
         // Hard stop: never past the floor or past the up position.
         pos = Math.max(Math.min(UP_POS, DOWN_POS), Math.min(Math.max(UP_POS, DOWN_POS), pos));
-        if (lowering && pos == DOWN_POS) target = hoverPos(); // touched the floor: now back off to the hover spot
         servo.setPosition(pos);
     }
 
-    /** The spot about 1 in above the ground: DOWN_POS backed off by HOVER_POS toward UP_POS (never past UP_POS). */
-    private static double hoverPos() {
-        double back = Math.min(HOVER_POS, Math.abs(UP_POS - DOWN_POS));
-        return DOWN_POS + Math.signum(UP_POS - DOWN_POS) * back;
-    }
-
-    /** True once the ramp has touched the floor and settled at the hover spot. */
     public boolean isDown() {
-        return active && lowering && pos == hoverPos();
+        return active && pos == DOWN_POS;
     }
 
     public String status() {
         if (UP_POS == DOWN_POS) return "not set up (UP_POS = DOWN_POS)";
-        String state = !lowering ? "up" : pos == hoverPos() ? "down, hovering" : "going down";
-        return String.format("%s, position %.2f", state, pos);
+        return String.format("%s, position %.2f", target == DOWN_POS ? "going down" : "up", pos);
     }
 }
